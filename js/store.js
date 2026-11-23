@@ -51,14 +51,14 @@
     },
     attempt(id) { return Store.attempts().find((a) => a.id === id) || null; },
     clearAttempts() { rawDel('attempts'); },
-    settings() { return Object.assign({ mode: 'practice' }, get('settings', {})); },
+    settings() { return Object.assign({ mode: 'learn' }, get('settings', {})); },
     saveSettings(s) { set('settings', s); },
     exportAll() {
-      return JSON.stringify({ app: 'luyen-thi-khoi-a-2026', exportedAt: new Date().toISOString(), attempts: Store.attempts(), active: Store.getActive(), settings: Store.settings() });
+      return JSON.stringify({ app: 'luyen-thi-khoi-a-2027', exportedAt: new Date().toISOString(), attempts: Store.attempts(), active: Store.getActive(), settings: Store.settings() });
     },
     importAll(text) {
       const d = JSON.parse(text);
-      if (!d || d.app !== 'luyen-thi-khoi-a-2026' || !Array.isArray(d.attempts)) throw new Error('Tệp không đúng định dạng');
+      if (!d || !/^luyen-thi-khoi-a-202[67]$/.test(d.app) || !Array.isArray(d.attempts)) throw new Error('Tệp không đúng định dạng');
       const valid = d.attempts.filter((a) => a && typeof a.id === 'string' && LT.SUBJECTS[a.subj] && Number.isInteger(a.no) && typeof a.score === 'number');
       const cur = Store.attempts();
       const ids = new Set(cur.map((a) => a.id));

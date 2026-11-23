@@ -164,7 +164,13 @@
   LT.addConcepts = function (subj, list) {
     list.forEach((c) => {
       LT.add(subj, 'mc', c.t, () => ({ q: c.q, opts: [c.a].concat(c.d), kn: c.kn, sol: c.sol || ('Đáp án đúng: <b>' + c.a + '</b>.') }), 'concept');
+      if (c.classic) LT.BANK[subj].mc[LT.BANK[subj].mc.length - 1].classic = true;
     });
+  };
+  /** Dạng bài kinh điển: xuất hiện lặp lại trong đề thi các năm 2009–2025. */
+  LT.addClassic = function (subj, part, topic, gen) {
+    LT.add(subj, part, topic, gen);
+    LT.BANK[subj][part][LT.BANK[subj][part].length - 1].classic = true;
   };
   /** Tóm tắt kiến thức trọng tâm theo chủ đề (dùng cho nhận xét). */
   LT.addKnow = function (subj, map) { LT.KNOW[subj] = Object.assign(LT.KNOW[subj] || {}, map); };

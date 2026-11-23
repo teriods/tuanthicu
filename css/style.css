@@ -318,3 +318,10 @@ footer.foot { text-align: center; font-size: 13px; color: var(--muted); margin-t
 @keyframes sheet { from { transform: translateY(30px); opacity: .5; } }
 .exam-head .ttl small.sub { display: flex; gap: 8px; align-items: center; }
 button, a, .opt { -webkit-tap-highlight-color: transparent; }
+.tag.classic { background: color-mix(in srgb, var(--violet) 15%, var(--card)); color: var(--violet); white-space: nowrap; }
+.q.done-ok { border-color: var(--ok); box-shadow: inset 4px 0 0 var(--ok); }
+.q.done-no { border-color: var(--bad); box-shadow: inset 4px 0 0 var(--bad); }
+.q.done-part { border-color: var(--warn); box-shadow: inset 4px 0 0 var(--warn); }
+.q .verdict + .flag, .q .verdict ~ .flag { margin-left: auto; }
+.q details[open] .explain { animation: tin .2s ease; }
+.verdict { white-space: nowrap; }

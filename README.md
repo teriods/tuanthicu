@@ -1,9 +1,11 @@
-# Luyện thi THPT 2026 – Khối A (Toán · Vật lí · Hoá học)
+# Luyện thi THPT 2027 – Khối A (Toán · Vật lí · Hoá học)
 
 Web luyện đề thi tốt nghiệp THPT theo **cấu trúc đề mới từ năm 2025** (Chương trình GDPT 2018), chạy hoàn toàn trên trình duyệt, không cần máy chủ.
 
 ## Tính năng
 - **3 môn × 120 đề** (Toán, Vật lí, Hoá học). Đề 1–40 mức Cơ bản, 41–80 Trung bình, 81–120 Vận dụng.
+- **Bám sát đề thi 2009–2025**: khoảng một nửa số câu tính toán lấy từ các *dạng bài kinh điển* xuất hiện lặp lại trong đề thi các năm (bảng biến thiên, tập xác định, lãi kép, góc giữa đường và mặt, xác suất chọn số; tuổi cổ vật C-14, truyền tải điện, máy phát điện; đốt cháy ester, Al + NaOH, Fe/Cu + HNO₃, lên men glucose, thuỷ phân peptide…), đã lọc theo Chương trình GDPT 2018. Các câu này có nhãn **“Dạng đề các năm”** (`js/data/classic.js`).
+- **3 chế độ làm bài**: *Luyện tập – chấm ngay* (chọn xong biết ngay đúng/sai và cách giải từng câu, từng ý), *Thi thử* (chấm khi nộp, đồng hồ dừng khi rời trang), *Thi thật* (đồng hồ chạy liên tục như phòng thi).
 - **Đúng cấu trúc đề thi mới**
   | | Toán (90 phút) | Vật lí / Hoá học (50 phút) |
   |---|---|---|

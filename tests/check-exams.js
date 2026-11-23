@@ -9,7 +9,7 @@ const root = path.join(__dirname, '..');
 const ctx = { console, Math, Date, JSON };
 ctx.globalThis = ctx;
 vm.createContext(ctx);
-['js/core.js', 'js/data/math.js', 'js/data/physics.js', 'js/data/chemistry.js', 'js/exam.js'].forEach((f) => {
+['js/core.js', 'js/data/math.js', 'js/data/physics.js', 'js/data/chemistry.js', 'js/data/classic.js', 'js/exam.js'].forEach((f) => {
   vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f });
 });
 const LT = ctx.LT;
