@@ -1,0 +1,16 @@
+{
+  "name": "Luyện thi THPT 2026 – Khối A",
+  "short_name": "Luyện thi A",
+  "description": "Luyện đề Toán, Vật lí, Hoá học theo cấu trúc thi tốt nghiệp THPT mới",
+  "lang": "vi",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#1d4ed8",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
