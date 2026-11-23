@@ -236,7 +236,7 @@
             const mode = el.querySelector('input[name=mode]:checked').value;
             Store.saveSettings(Object.assign(set, { mode }));
             const now = Date.now(), total = S.minutes * 60000;
-            Store.setActive({ id: 's' + now.toString(36), subj, no, version: LT.getExam(subj, no).version, mode, totalMs: total, remainingMs: total, deadline: now + total, startedAt: now, updatedAt: now, answers: [], flags: [], away: { n: 0, ms: 0 }, tab: TAB });
+            Store.setActive({ id: 's' + now.toString(36), subj, no, version: LT.getExam(subj, no).version, mode, totalMs: total, remainingMs: total, deadline: now + total, startedAt: now, updatedAt: now, answers: [], flags: [], warned: [], fresh: true, away: { n: 0, ms: 0 }, tab: TAB });
             go(`#/exam/${subj}/${no}`);
           },
         },
@@ -324,14 +324,15 @@
     document.body.classList.add('in-exam');
     sess.tab = TAB;
     const qs = ex.questions;
+    sess.warned = sess.warned || [];
     let html = `<div class="exam-head">
-        <a class="btn sm ghost" href="#/s/${subj}" title="Thoát (bài vẫn được lưu)">←</a>
-        <div class="ttl">${S.name} – Đề ${no}<small>${sess.mode === 'strict' ? 'Chế độ thi thật' : 'Chế độ luyện tập'} · <span id="cnt"></span></small></div>
+        <a class="btn sm ghost back" href="#/s/${subj}" title="Thoát (bài vẫn được lưu)" aria-label="Thoát">←</a>
+        <div class="ttl">${S.name} · Đề ${no}<small class="sub"><span id="cnt"></span><span class="save-state" id="save">Đã lưu</span></small></div>
         <span class="spacer"></span>
-        <span class="save-state" id="save">Đã lưu</span>
-        <span class="timer" id="timer">--:--</span>
-        ${sess.mode === 'strict' ? '' : '<button class="btn sm" id="pause" title="Tạm dừng đồng hồ">Tạm dừng</button>'}
-        <button class="btn sm primary" id="submit">Nộp bài</button>
+        <div class="timer" id="timer" role="timer" aria-live="off"><span class="tl">${sess.mode === 'strict' ? 'Thi thật · còn lại' : 'Thời gian còn lại'}</span><b id="tval">--:--</b><span class="tsub" id="tsub"></span></div>
+        ${sess.mode === 'strict' ? '' : '<button class="btn sm icon" id="pause" title="Tạm dừng đồng hồ" aria-label="Tạm dừng"><span class="pz"></span></button>'}
+        <button class="btn sm primary hide-m" id="submit">Nộp bài</button>
+        <div class="tbar"><i id="tbar"></i></div>
       </div>`;
     let lastPart = null;
     qs.forEach((q, i) => {
@@ -339,11 +340,23 @@
       html += renderQ(q, i, sess.answers[i], false, sess.flags[i]);
     });
     html += `<div class="row" style="justify-content:center;margin-top:24px"><button class="btn primary" id="submit2">Nộp bài</button></div>
-      <button class="btn nav-fab" id="palette">☰ Danh sách câu</button>`;
+      <nav class="dock" aria-label="Điều hướng câu hỏi">
+        <button class="btn icon" id="prev" aria-label="Câu trước">‹</button>
+        <button class="btn grow" id="palette"><span>☰ Câu <b id="cur">1</b>/${qs.length}</span><small id="cnt2"></small></button>
+        <button class="btn icon" id="next" aria-label="Câu sau">›</button>
+        <button class="btn primary" id="submit3">Nộp bài</button>
+      </nav>`;
     app.innerHTML = html;
 
-    const $timer = document.getElementById('timer'), $save = document.getElementById('save'), $cnt = document.getElementById('cnt');
-    let manualPause = false, hiddenAt = null, last = Date.now(), lastSaveTick = Date.now(), cover = null, ended = false;
+    const $timer = document.getElementById('timer'), $tval = document.getElementById('tval'), $tsub = document.getElementById('tsub'), $tbar = document.getElementById('tbar');
+    const $save = document.getElementById('save'), $cnt = document.getElementById('cnt'), $cnt2 = document.getElementById('cnt2'), $cur = document.getElementById('cur');
+    let cur = 0;
+    const io = 'IntersectionObserver' in window ? new IntersectionObserver((ents) => {
+      ents.forEach((en) => { if (en.isIntersecting) { cur = +en.target.id.slice(1); $cur.textContent = cur + 1; } });
+    }, { rootMargin: '-45% 0px -50% 0px' }) : null;
+    io && app.querySelectorAll('article.q').forEach((el) => io.observe(el));
+    const goQ = (i) => { i = Math.max(0, Math.min(qs.length - 1, i)); cur = i; $cur.textContent = i + 1; const el = document.getElementById('q' + i); const y = el.getBoundingClientRect().top + window.scrollY - (document.querySelector('.exam-head').offsetHeight + 8); window.scrollTo({ top: y, behavior: 'smooth' }); };
+    let cdCleanup = null, manualPause = false, hiddenAt = null, last = Date.now(), lastSaveTick = Date.now(), cover = null, ended = false;
 
     function save(silent) {
       if (ended) return; // đã nộp bài: không ghi lại bài làm dở
@@ -355,7 +368,7 @@
       }
       if (!ok && !Store.persistent) $save.title = 'Trình duyệt chặn bộ nhớ (chế độ ẩn danh?). Không nên tải lại trang.';
     }
-    function updCount() { $cnt.textContent = `đã làm ${countAnswered(ex, sess.answers)}/${qs.length} câu`; }
+    function updCount() { const n = countAnswered(ex, sess.answers); $cnt.textContent = `${n}/${qs.length} câu`; $cnt2.textContent = `đã làm ${n}`; }
     function setAns(i, v) { sess.answers[i] = v; save(); updCount(); }
 
     function tick() {
@@ -364,8 +377,22 @@
       if (sess.mode === 'strict') sess.remainingMs = sess.deadline - now;
       else if (!manualPause && document.visibilityState === 'visible') sess.remainingMs -= Math.min(now - last, 3000);
       last = now;
-      $timer.textContent = clock(sess.remainingMs);
-      $timer.className = 'timer' + (sess.remainingMs < 5 * 60000 ? ' low' : '') + (manualPause ? ' paused' : '');
+      const rem = sess.remainingMs;
+      $tval.textContent = clock(rem);
+      $timer.className = 'timer' + (rem <= 60000 ? ' crit' : rem < 5 * 60000 ? ' low' : rem < 15 * 60000 ? ' warn' : '') + (manualPause ? ' paused' : '');
+      const frac = Math.max(0, Math.min(1, rem / sess.totalMs));
+      $tbar.style.width = frac * 100 + '%';
+      $tbar.className = rem <= 5 * 60000 ? 'lo' : rem < 15 * 60000 ? 'mid' : '';
+      $tsub.textContent = manualPause ? 'Đang tạm dừng' : sess.mode === 'strict' ? 'Nộp lúc ' + timeStr(sess.deadline).slice(0, 5) : 'Đã làm ' + Math.floor((sess.totalMs - rem) / 60000) + ' phút';
+      // Cảnh báo thời gian như giám thị nhắc
+      const due = [1, 5, 15].filter((m) => rem <= m * 60000 && rem > 0 && sess.warned.indexOf(m) < 0 && sess.totalMs > m * 60000);
+      due.slice(0, 1).forEach((m) => {
+        {
+          due.forEach((x) => sess.warned.push(x));
+          toast(`⏰ Còn <b>${m} phút</b> làm bài${m === 1 ? ' – hãy kiểm tra lại các câu đã tô!' : m === 5 ? ' – chuẩn bị nộp bài.' : '.'}`, 'warn', 6000);
+          try { navigator.vibrate && navigator.vibrate(m === 1 ? [200, 100, 200, 100, 200] : [250, 120, 250]); } catch (e) { /* */ }
+        }
+      });
       if (now - lastSaveTick > 5000) { lastSaveTick = now; save(true); }
       if (sess.remainingMs <= 0) {
         sess.remainingMs = 0;
@@ -375,6 +402,25 @@
       }
     }
     const iv = setInterval(tick, 1000);
+    if (sess.fresh) {
+      // Đếm ngược 3-2-1 trước khi tính giờ, như hiệu lệnh bắt đầu làm bài
+      manualPause = true;
+      const cd = document.createElement('div');
+      cd.className = 'pause-cover countdown';
+      cd.innerHTML = `<div><p class="muted">${S.name} · Đề số ${no} · ${S.minutes} phút</p><div class="cd-num">3</div><p>Chuẩn bị tính giờ làm bài…</p></div>`;
+      document.body.appendChild(cd);
+      let k = 3;
+      const ci = setInterval(() => {
+        k--;
+        if (k > 0) { cd.querySelector('.cd-num').textContent = k; return; }
+        clearInterval(ci); cd.remove();
+        const now = Date.now();
+        sess.fresh = false; sess.startedAt = now; sess.deadline = now + sess.totalMs; sess.remainingMs = sess.totalMs;
+        manualPause = false; last = now; save(); tick();
+        toast('Bắt đầu tính giờ. Chúc bạn làm bài tốt!');
+      }, 900);
+      cdCleanup = () => { clearInterval(ci); cd.remove(); };
+    }
     tick(); updCount(); save();
 
     function onVis() {
@@ -402,7 +448,7 @@
     window.addEventListener('offline', onNet);
     window.addEventListener('storage', onStorage);
     cleanup = () => {
-      clearInterval(iv); save(true);
+      clearInterval(iv); save(true); io && io.disconnect(); cdCleanup && cdCleanup();
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('pagehide', onHide);
       window.removeEventListener('beforeunload', onHide);
@@ -443,7 +489,9 @@
         let v = inp.value.trim();
         v = /^[-−]/.test(v) ? v.replace(/^[-−]/, '') : '-' + v;
         inp.value = v; setAns(i, v); inp.focus();
-      } else if (t.id === 'submit' || t.id === 'submit2') confirmSubmit();
+      } else if (t.id === 'submit' || t.id === 'submit2' || t.id === 'submit3') confirmSubmit();
+      else if (t.id === 'prev') goQ(cur - 1);
+      else if (t.id === 'next') goQ(cur + 1);
       else if (t.id === 'palette') showPalette();
       else if (t.id === 'pause') pause();
     }
@@ -476,7 +524,7 @@
         const a = sess.answers[i];
         const full = q.part === 'tf' ? Array.isArray(a) && a.every((x) => x != null) : isAnswered(q, a);
         const partial = q.part === 'tf' && isAnswered(q, a) && !full;
-        h += `<button data-go="${i}" class="${full ? 'ans' : partial ? 'part' : ''} ${sess.flags[i] ? 'flg' : ''}">${i + 1}</button>`;
+        h += `<button data-go="${i}" class="${full ? 'ans' : partial ? 'part' : ''} ${sess.flags[i] ? 'flg' : ''} ${i === cur ? 'cur' : ''}">${i + 1}</button>`;
       });
       const m = modal({
         title: 'Danh sách câu hỏi',
@@ -486,7 +534,7 @@
       m.el.querySelector('.palette').onclick = (e) => {
         const b = e.target.closest('[data-go]'); if (!b) return;
         m.close();
-        document.getElementById('q' + b.dataset.go).scrollIntoView({ behavior: 'smooth', block: 'start' });
+        goQ(+b.dataset.go);
       };
     }
     function confirmSubmit() {
