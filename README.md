@@ -36,7 +36,7 @@ node tests/check-exams.js
 Sinh toàn bộ 360 đề, kiểm tra cấu trúc, phương án không trùng, đáp án hợp lệ, làm đúng hết được 10 điểm, đề ổn định.
 
 ## Đưa lên mạng (GitHub Pages)
-Workflow `.github/workflows/pages.yml` tự triển khai khi đẩy lên nhánh `main`. Vào **Settings → Pages → Source: GitHub Actions** để bật.
+Workflow `.github/workflows/pages.yml` chạy kiểm thử rồi xuất bản lên nhánh `gh-pages` mỗi khi đẩy lên `main`. GitHub Pages phục vụ từ nhánh `gh-pages` (Settings → Pages → Branch: `gh-pages` / root). Địa chỉ: https://teriods.github.io/tuanthicu/
 
 ## Thêm dạng bài
 Dùng `LT.add(môn, 'mc' | 'tf' | 'sa', chủ_đề, (r) => ({ q, opts | items | ans, sol, kn }))` trong file môn tương ứng; với câu nhiều lựa chọn, phương án đúng đặt đầu mảng `opts` (sẽ được xáo trộn). Chạy lại kiểm thử sau khi thêm.
