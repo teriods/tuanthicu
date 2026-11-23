@@ -2,7 +2,7 @@
 (function (G) {
   'use strict';
   const LT = G.LT;
-  const VERSION = 'v1';
+  const VERSION = 'v2';
   const EXAMS_PER_SUBJECT = 120;
 
   /* Cấu trúc đề theo định dạng thi tốt nghiệp THPT từ năm 2025 */
@@ -68,19 +68,26 @@
     const questions = [];
     ['mc', 'tf', 'sa'].forEach((part) => {
       let chosen;
+      /* Khoảng một nửa số câu tính toán lấy từ các dạng kinh điển của đề thi 2009–2025 */
+      const SHARE = { mc: 0.5, tf: 0.25, sa: 0.34 };
+      const mix = (pool, n) => {
+        const cls = pool.filter((g) => g.classic), rest = pool.filter((g) => !g.classic);
+        const nc = Math.min(cls.length, Math.round(n * SHARE[part]));
+        return r.sample(cls, nc).concat(pickTemplates(r, rest, n - nc));
+      };
       if (part === 'mc') {
         const calc = bank.mc.filter((g) => g.kind !== 'concept');
         const conc = bank.mc.filter((g) => g.kind === 'concept');
         const nConc = Math.min(S.concepts, conc.length);
-        chosen = pickTemplates(r, calc, S.parts.mc - nConc).concat(r.sample(conc, nConc));
+        chosen = mix(calc, S.parts.mc - nConc).concat(r.sample(conc, nConc));
       } else {
-        chosen = pickTemplates(r, bank[part], S.parts[part]);
+        chosen = mix(bank[part], S.parts[part]);
       }
       // sắp theo thứ tự chủ đề (như đề thật đi theo chương)
       chosen = chosen.map((g, i) => ({ g, i })).sort((a, b) => topics.indexOf(a.g.topic) - topics.indexOf(b.g.topic) || a.i - b.i).map((x) => x.g);
       chosen.forEach((g, k) => {
         const { q, r: qr } = runGen(g, subj + '#' + no + '#' + part + '#' + k + '#' + g.id);
-        const item = { part, topic: g.topic, gid: g.id, q: fixMinus(q.q), kn: q.kn || (LT.KNOW[subj] || {})[g.topic] || '', sol: fixMinus(q.sol || '') };
+        const item = { subj, part, topic: g.topic, gid: g.id, classic: !!g.classic, q: fixMinus(q.q), kn: q.kn || (LT.KNOW[subj] || {})[g.topic] || '', sol: fixMinus(q.sol || '') };
         if (part === 'mc') {
           const order = qr.shuffle([0, 1, 2, 3]);
           item.opts = order.map((i) => fixMinus(q.opts[i]));

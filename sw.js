@@ -1,8 +1,8 @@
 /* Service worker: lưu toàn bộ ứng dụng vào bộ nhớ đệm để mở được khi mất mạng. */
-const CACHE = 'ltA26-v2';
+const CACHE = 'ltA26-v3';
 const ASSETS = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest',
-  'js/core.js', 'js/data/math.js', 'js/data/physics.js', 'js/data/chemistry.js', 'js/exam.js', 'js/store.js', 'js/app.js',
+  'js/core.js', 'js/data/math.js', 'js/data/physics.js', 'js/data/chemistry.js', 'js/data/classic.js', 'js/exam.js', 'js/store.js', 'js/app.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 self.addEventListener('install', (e) => {

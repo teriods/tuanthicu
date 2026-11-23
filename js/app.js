@@ -115,8 +115,9 @@
     }).join('');
     app.innerHTML = `
       <section class="hero">
-        <h1>Luyện đề thi tốt nghiệp THPT 2026 – Khối A</h1>
-        <p class="muted">Toán, Vật lí, Hoá học theo đúng cấu trúc đề mới (Chương trình GDPT 2018): trắc nghiệm nhiều lựa chọn, đúng/sai và trả lời ngắn. Mỗi môn ${LT.EXAMS_PER_SUBJECT} đề, có giải thích kiến thức từng câu, chấm điểm và nhận xét sau khi nộp bài.</p>
+        <h1>Luyện đề thi tốt nghiệp THPT 2027 – Khối A</h1>
+        <p class="muted">Toán, Vật lí, Hoá học theo đúng cấu trúc đề mới (Chương trình GDPT 2018): trắc nghiệm nhiều lựa chọn, đúng/sai và trả lời ngắn. Mỗi môn ${LT.EXAMS_PER_SUBJECT} đề, bám sát các dạng bài xuất hiện nhiều trong đề thi 2009–2025, có giải thích kiến thức từng câu, chấm điểm và nhận xét sau khi nộp bài.</p>
+        <p class="small" style="margin-top:8px">✅ Chế độ <b>Luyện tập – chấm ngay</b>: chọn xong biết ngay đúng/sai và xem cách giải.</p>
       </section>
       ${resumeCard()}
       <h2>Chọn môn luyện thi</h2>
@@ -225,7 +226,8 @@
       title: `${S.name} – Đề số ${no}`,
       dismiss: !onCancel,
       body: `<p class="small muted">Mức ${lv.name} · ${S.minutes} phút · ${S.parts.mc + S.parts.tf + S.parts.sa} câu</p>
-        <label class="choice"><input type="radio" name="mode" value="practice" ${set.mode !== 'strict' ? 'checked' : ''}><span><b>Luyện tập</b><br><span class="small muted">Đồng hồ tự dừng khi bạn rời trang (nghe điện thoại, chuyển ứng dụng, mất mạng…) và có nút tạm dừng.</span></span></label>
+        <label class="choice"><input type="radio" name="mode" value="learn" ${set.mode === 'learn' ? 'checked' : ''}><span><b>Luyện tập – chấm ngay</b><br><span class="small muted">Chọn xong biết ngay đúng/sai và xem cách giải từng câu. Đồng hồ tự dừng khi bạn rời trang.</span></span></label>
+        <label class="choice"><input type="radio" name="mode" value="practice" ${set.mode === 'practice' ? 'checked' : ''}><span><b>Thi thử</b><br><span class="small muted">Chấm điểm khi nộp bài. Đồng hồ tự dừng khi bạn rời trang (nghe điện thoại, chuyển ứng dụng…), có nút tạm dừng.</span></span></label>
         <label class="choice"><input type="radio" name="mode" value="strict" ${set.mode === 'strict' ? 'checked' : ''}><span><b>Thi thật</b><br><span class="small muted">Đồng hồ chạy liên tục như phòng thi, không tạm dừng. Hết giờ tự động nộp bài.</span></span></label>
         <p class="small muted">Bài làm luôn được tự động lưu trên máy ở cả hai chế độ.</p>`,
       actions: [
@@ -236,7 +238,7 @@
             const mode = el.querySelector('input[name=mode]:checked').value;
             Store.saveSettings(Object.assign(set, { mode }));
             const now = Date.now(), total = S.minutes * 60000;
-            Store.setActive({ id: 's' + now.toString(36), subj, no, version: LT.getExam(subj, no).version, mode, totalMs: total, remainingMs: total, deadline: now + total, startedAt: now, updatedAt: now, answers: [], flags: [], warned: [], fresh: true, away: { n: 0, ms: 0 }, tab: TAB });
+            Store.setActive({ id: 's' + now.toString(36), subj, no, version: LT.getExam(subj, no).version, mode, totalMs: total, remainingMs: total, deadline: now + total, startedAt: now, updatedAt: now, answers: [], flags: [], checked: [], warned: [], fresh: true, away: { n: 0, ms: 0 }, tab: TAB });
             go(`#/exam/${subj}/${no}`);
           },
         },
@@ -254,49 +256,68 @@
   }
 
   /* ---------------- Hiển thị một câu hỏi ---------------- */
-  function renderQ(q, i, ans, review, flagged, res) {
+  /* review: xem lại sau khi nộp. learn: chế độ chấm ngay – {checked} cho câu trả lời ngắn. */
+  function renderQ(q, i, ans, review, flagged, res, learn) {
     const num = `<span class="q-num">Câu ${i + 1}.</span>`;
     let body = '';
     let verdict = '';
+    let full = !!review; // đã lộ đáp án toàn câu
+    if (!res && learn) res = gradeOne(q, ans);
     if (q.part === 'mc') {
+      const rv = review || (learn && ans != null);
+      full = rv;
       const short = q.opts.every((o) => o.replace(/<[^>]+>/g, '').length < 38);
       body = `<div class="opts ${short ? 'short' : ''}">` + q.opts.map((o, j) => {
         let cls = '';
-        if (review) { if (j === q.ans) cls = 'right'; else if (ans === j) cls = 'wrong'; }
+        if (rv) { if (j === q.ans) cls = 'right'; else if (ans === j) cls = 'wrong'; }
         else if (ans === j) cls = 'sel';
-        return `<button class="opt ${cls}" data-q="${i}" data-o="${j}" ${review ? 'disabled' : ''}><span class="L">${L[j]}</span><span>${o}</span></button>`;
+        return `<button class="opt ${cls}" data-q="${i}" data-o="${j}" ${rv ? 'disabled' : ''}><span class="L">${L[j]}</span><span>${o}</span></button>`;
       }).join('') + '</div>';
-      if (review) verdict = ans == null ? 'blank' : ans === q.ans ? 'ok' : 'no';
+      if (rv) verdict = ans == null ? 'blank' : ans === q.ans ? 'ok' : 'no';
     } else if (q.part === 'tf') {
       const arr = Array.isArray(ans) ? ans : [];
+      if (learn && arr.length === 4 && arr.every((x) => x != null)) full = true;
       body = q.items.map((it, j) => {
+        const rv = review || (learn && arr[j] != null);
         const b = (val, label) => {
           let cls = '';
-          if (review) { if (it.v === val) cls = 'right'; else if (arr[j] === val) cls = 'wrong'; }
+          if (rv) { if (it.v === val) cls = 'right'; else if (arr[j] === val) cls = 'wrong'; }
           else if (arr[j] === val) cls = 'sel';
-          return `<button class="${cls}" data-q="${i}" data-t="${j}" data-v="${val ? 1 : 0}" ${review ? 'disabled' : ''} aria-pressed="${arr[j] === val}">${label}</button>`;
+          return `<button class="${cls}" data-q="${i}" data-t="${j}" data-v="${val ? 1 : 0}" ${rv ? 'disabled' : ''} aria-pressed="${arr[j] === val}">${label}</button>`;
         };
-        const mark = review ? (arr[j] == null ? ' <span class="verdict blank">bỏ trống</span>' : arr[j] === it.v ? ' <span class="verdict ok">✓</span>' : ' <span class="verdict no">✗</span>') : '';
-        return `<div class="tf-row"><div class="s"><b>${'abcd'[j]})</b>${it.s}${mark}${review ? `<div class="tf-sol">→ ${it.v ? '<b>Đúng</b>' : '<b>Sai</b>'}. ${it.sol || ''}</div>` : ''}</div><div class="tf-btns">${b(true, 'Đúng')}${b(false, 'Sai')}</div></div>`;
+        const mark = rv ? (arr[j] == null ? ' <span class="verdict blank">bỏ trống</span>' : arr[j] === it.v ? ' <span class="verdict ok">✓ đúng</span>' : ' <span class="verdict no">✗ sai</span>') : '';
+        return `<div class="tf-row"><div class="s"><b>${'abcd'[j]})</b>${it.s}${mark}${rv ? `<div class="tf-sol">→ Mệnh đề ${it.v ? '<b>Đúng</b>' : '<b>Sai</b>'}. ${it.sol || ''}</div>` : ''}</div><div class="tf-btns">${b(true, 'Đúng')}${b(false, 'Sai')}</div></div>`;
       }).join('');
-      if (review) { const c = res && res.detail ? res.detail.filter(Boolean).length : 0; verdict = !arr.some((x) => x != null) ? 'blank' : c === 4 ? 'ok' : c === 0 ? 'no' : 'part'; }
+      if (full) { const c = res && res.detail ? res.detail.filter(Boolean).length : 0; verdict = !arr.some((x) => x != null) ? 'blank' : c === 4 ? 'ok' : c === 0 ? 'no' : 'part'; }
     } else {
       const v = ans == null ? '' : String(ans);
-      if (review) {
+      const rv = review || (learn && learn.checked);
+      full = rv;
+      if (rv) {
         body = `<div class="sa-input"><span>Bạn trả lời: <b>${v ? esc(v) : '<i class="muted">bỏ trống</i>'}</b></span><span>Đáp án: <b style="color:var(--ok)">${U.numF(q.ans, q.dp)}</b></span></div>`;
         verdict = !v ? 'blank' : LT.shortCorrect(q, v) ? 'ok' : 'no';
       } else {
-        body = `<div class="sa-input"><input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" maxlength="10" data-q="${i}" value="${esc(v)}" placeholder="Đáp số" aria-label="Đáp số câu ${i + 1}"><button class="btn sm ghost" data-sign="${i}" title="Đổi dấu âm/dương">±</button><span class="small muted">Dùng dấu phẩy cho số thập phân (vd: 2,5).</span></div>`;
+        body = `<div class="sa-input"><input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" maxlength="10" data-q="${i}" value="${esc(v)}" placeholder="Đáp số" aria-label="Đáp số câu ${i + 1}"><button class="btn sm ghost" data-sign="${i}" title="Đổi dấu âm/dương">±</button>${learn ? `<button class="btn sm primary" data-check="${i}">Kiểm tra</button>` : ''}<span class="small muted">Dùng dấu phẩy cho số thập phân (vd: 2,5).</span></div>`;
       }
     }
     const vt = { ok: 'Đúng', no: 'Sai', part: res && res.detail ? `Đúng ${res.detail.filter(Boolean).length}/4 ý` : '', blank: 'Bỏ trống' };
-    const pts = review && res ? ` <span class="small muted">(${fmt(res.pts)}/${fmt(res.max)} đ)</span>` : '';
-    return `<article class="card q" id="q${i}">
-      <div class="q-head">${num}<span class="q-topic">${esc(q.topic)}</span>${review ? `<span class="verdict ${verdict}">${vt[verdict]}</span>${pts}` : `<button class="flag ${flagged ? 'on' : ''}" data-flag="${i}">${flagged ? '★ Đã đánh dấu' : '☆ Đánh dấu'}</button>`}</div>
+    const pts = full && res ? ` <span class="small muted">(${fmt(res.pts)}/${fmt(res.max)} đ)</span>` : '';
+    const badge = q.classic ? '<span class="tag classic" title="Dạng bài xuất hiện nhiều lần trong đề thi 2009–2025">Dạng đề các năm</span>' : '';
+    const flagBtn = review ? '' : `<button class="flag ${flagged ? 'on' : ''}" data-flag="${i}">${flagged ? '★ Đã đánh dấu' : '☆ Đánh dấu'}</button>`;
+    return `<article class="card q ${full && !review ? 'done-' + verdict : ''}" id="q${i}">
+      <div class="q-head">${num}<span class="q-topic">${esc(q.topic)}</span>${badge}${full ? `<span class="verdict ${verdict}">${vt[verdict]}</span>${pts}` : ''}${flagBtn}</div>
       <div class="q-text">${q.q}</div>
       ${body}
-      ${review ? `<details ${verdict !== 'ok' ? 'open' : ''}><summary>Giải thích kiến thức & lời giải</summary><div class="explain">${q.kn ? `<div class="k">${q.kn}</div>` : ''}${q.part !== 'tf' ? `<div class="s">${q.sol}</div>` : '<div class="s">Xem giải thích từng ý ở trên.</div>'}</div></details>` : ''}
+      ${full ? `<details ${verdict !== 'ok' || learn ? 'open' : ''}><summary>Giải thích kiến thức & lời giải</summary><div class="explain">${q.kn ? `<div class="k">${q.kn}</div>` : ''}${q.part !== 'tf' ? `<div class="s">${q.sol}</div>` : '<div class="s">Xem giải thích từng ý ở trên.</div>'}</div></details>` : ''}
     </article>`;
+  }
+  function feedbackBuzz(ok) { try { navigator.vibrate && navigator.vibrate(ok ? 30 : [60, 50, 60]); } catch (e) { /* */ } }
+  /* Chấm một câu (dùng cho chế độ chấm ngay) */
+  function gradeOne(q, a) {
+    const S = LT.SUBJECTS[q.subj] || { pts: { mc: 0.25, sa: 0.25 } };
+    if (q.part === 'mc') { const ok = a != null && a === q.ans; return { ok, pts: ok ? S.pts.mc : 0, max: S.pts.mc }; }
+    if (q.part === 'tf') { const arr = Array.isArray(a) ? a : []; const detail = q.items.map((it, j) => arr[j] != null && arr[j] === it.v); const c = detail.filter(Boolean).length; return { ok: c === 4, detail, pts: LT.TF_PTS[c], max: 1 }; }
+    const ok = a != null && String(a).trim() !== '' && LT.shortCorrect(q, a); return { ok, pts: ok ? S.pts.sa : 0, max: S.pts.sa };
   }
   function partHeader(part, S) {
     const desc = {
@@ -316,6 +337,11 @@
       app.innerHTML = `<p class="small"><a href="#/s/${subj}">← ${S.name}</a></p><div class="empty">Chưa bắt đầu đề này.</div>`;
       return requestStart(subj, no);
     }
+    if (sess.version && sess.version !== ex.version) {
+      Store.clearActive();
+      toast('Ngân hàng đề vừa được cập nhật nên bài làm dở của phiên bản cũ không thể tiếp tục. Mời bạn bắt đầu lại.', 'warn', 7000);
+      return requestStart(subj, no);
+    }
     // chế độ thi thật: thời gian trôi cả khi đóng trang
     if (sess.mode === 'strict' && Date.now() >= sess.deadline) {
       toast('Đã hết giờ làm bài trong lúc bạn rời đi. Bài làm đã lưu được nộp tự động.', 'warn', 6000);
@@ -325,11 +351,14 @@
     sess.tab = TAB;
     const qs = ex.questions;
     sess.warned = sess.warned || [];
+    sess.checked = sess.checked || [];
+    const learn = sess.mode === 'learn';
+    const lopt = (i) => (learn ? { checked: !!sess.checked[i] } : null);
     let html = `<div class="exam-head">
         <a class="btn sm ghost back" href="#/s/${subj}" title="Thoát (bài vẫn được lưu)" aria-label="Thoát">←</a>
         <div class="ttl">${S.name} · Đề ${no}<small class="sub"><span id="cnt"></span><span class="save-state" id="save">Đã lưu</span></small></div>
         <span class="spacer"></span>
-        <div class="timer" id="timer" role="timer" aria-live="off"><span class="tl">${sess.mode === 'strict' ? 'Thi thật · còn lại' : 'Thời gian còn lại'}</span><b id="tval">--:--</b><span class="tsub" id="tsub"></span></div>
+        <div class="timer" id="timer" role="timer" aria-live="off"><span class="tl">${sess.mode === 'strict' ? 'Thi thật · còn lại' : learn ? 'Chấm ngay · còn lại' : 'Thời gian còn lại'}</span><b id="tval">--:--</b><span class="tsub" id="tsub"></span></div>
         ${sess.mode === 'strict' ? '' : '<button class="btn sm icon" id="pause" title="Tạm dừng đồng hồ" aria-label="Tạm dừng"><span class="pz"></span></button>'}
         <button class="btn sm primary hide-m" id="submit">Nộp bài</button>
         <div class="tbar"><i id="tbar"></i></div>
@@ -337,7 +366,7 @@
     let lastPart = null;
     qs.forEach((q, i) => {
       if (q.part !== lastPart) { html += partHeader(q.part, S); lastPart = q.part; }
-      html += renderQ(q, i, sess.answers[i], false, sess.flags[i]);
+      html += renderQ(q, i, sess.answers[i], false, sess.flags[i], null, lopt(i));
     });
     html += `<div class="row" style="justify-content:center;margin-top:24px"><button class="btn primary" id="submit2">Nộp bài</button></div>
       <nav class="dock" aria-label="Điều hướng câu hỏi">
@@ -364,11 +393,25 @@
       const ok = Store.setActive(sess);
       if (!silent || !ok) {
         $save.className = 'save-state ' + (ok ? '' : 'err');
-        $save.textContent = ok ? 'Đã lưu ' + timeStr(sess.updatedAt) : 'Không lưu được!';
+        $save.textContent = ok ? 'Đã lưu ' + timeStr(sess.updatedAt).slice(0, 5) : 'Không lưu được!';
       }
       if (!ok && !Store.persistent) $save.title = 'Trình duyệt chặn bộ nhớ (chế độ ẩn danh?). Không nên tải lại trang.';
     }
-    function updCount() { const n = countAnswered(ex, sess.answers); $cnt.textContent = `${n}/${qs.length} câu`; $cnt2.textContent = `đã làm ${n}`; }
+    function updCount() {
+      const n = countAnswered(ex, sess.answers);
+      $cnt.textContent = `${n}/${qs.length} câu`;
+      if (!learn) { $cnt2.textContent = `đã làm ${n}`; return; }
+      let pts = 0, right = 0;
+      qs.forEach((q, i) => { if (q.part === 'sa' && !sess.checked[i]) return; const g = gradeOne(q, sess.answers[i]); pts += g.pts; if (g.ok) right++; });
+      $cnt2.textContent = `đúng ${right} · ${fmt(pts)} điểm`;
+    }
+    function rerender(i) {
+      const el = document.getElementById('q' + i); if (!el) return;
+      const tmp = document.createElement('div');
+      tmp.innerHTML = renderQ(qs[i], i, sess.answers[i], false, sess.flags[i], null, lopt(i));
+      const nu = tmp.firstElementChild; el.replaceWith(nu);
+      io && io.observe(nu);
+    }
     function setAns(i, v) { sess.answers[i] = v; save(); updCount(); }
 
     function tick() {
@@ -468,21 +511,30 @@
       if (!t || ended) return;
       if (t.dataset.o != null) {
         const i = +t.dataset.q, j = +t.dataset.o;
-        const v = sess.answers[i] === j ? null : j;
+        const v = !learn && sess.answers[i] === j ? null : j;
         t.parentElement.querySelectorAll('.opt').forEach((b, k) => b.classList.toggle('sel', k === v));
         setAns(i, v);
+        if (learn) { rerender(i); feedbackBuzz(qs[i].ans === v); }
       } else if (t.dataset.t != null) {
         const i = +t.dataset.q, j = +t.dataset.t, val = t.dataset.v === '1';
         const arr = Array.isArray(sess.answers[i]) ? sess.answers[i].slice() : [null, null, null, null];
-        arr[j] = arr[j] === val ? null : val;
+        arr[j] = !learn && arr[j] === val ? null : val;
         t.parentElement.querySelectorAll('button').forEach((b) => { const on = arr[j] === (b.dataset.v === '1'); b.classList.toggle('sel', on); b.setAttribute('aria-pressed', on); });
         setAns(i, arr);
+        if (learn) { rerender(i); feedbackBuzz(qs[i].items[j].v === val); }
       } else if (t.dataset.flag != null) {
         const i = +t.dataset.flag;
         sess.flags[i] = !sess.flags[i];
         t.classList.toggle('on', sess.flags[i]);
         t.textContent = sess.flags[i] ? '★ Đã đánh dấu' : '☆ Đánh dấu';
         save();
+      } else if (t.dataset.check != null) {
+        const i = +t.dataset.check;
+        const inp = app.querySelector(`input[data-q="${i}"]`);
+        if (!inp.value.trim()) { toast('Hãy nhập đáp số trước khi kiểm tra.'); inp.focus(); return; }
+        if (isNaN(LT.parseShort(inp.value))) { toast('Đáp số chưa đúng định dạng số (ví dụ: 12 hoặc −2,5).', 'warn'); inp.focus(); return; }
+        sess.answers[i] = inp.value; sess.checked[i] = true; save(); updCount();
+        rerender(i); feedbackBuzz(LT.shortCorrect(qs[i], inp.value));
       } else if (t.dataset.sign != null) {
         const i = +t.dataset.sign;
         const inp = app.querySelector(`input[data-q="${i}"]`);
@@ -574,7 +626,7 @@
     if (!a) { app.innerHTML = '<div class="empty">Không tìm thấy kết quả. <a href="#/history">Xem lịch sử</a></div>'; return; }
     const S = LT.SUBJECTS[a.subj];
     const ex = LT.getExam(a.subj, a.no);
-    if (!a.answers) { app.innerHTML = `<div class="card"><h3>${S.name} – Đề ${a.no}: ${fmt(a.score)} điểm</h3><p class="muted">Chi tiết bài làm cũ đã được dọn để tiết kiệm bộ nhớ.</p></div>`; return; }
+    if (!a.answers || (a.version && a.version !== ex.version)) { app.innerHTML = `<div class="card"><h3>${S.name} – Đề ${a.no}: ${fmt(a.score)} điểm</h3><p class="muted">${a.answers ? 'Bài này làm trên phiên bản ngân hàng đề cũ nên không thể hiển thị lại chi tiết.' : 'Chi tiết bài làm cũ đã được dọn để tiết kiệm bộ nhớ.'}</p></div>`; return; }
     const res = LT.grade(ex, a.answers);
     const history = Store.attempts().filter((x) => x.subj === a.subj && x.date < a.date);
     const fb = LT.feedback(ex, res, { usedMs: a.usedMs, history });
@@ -600,7 +652,7 @@
             <h1 style="margin-top:0">${S.name} – Đề số ${a.no}</h1>
             <span class="band ${fb.band.k}">${fb.band.t}</span>
             <p style="margin:8px 0 0">${fb.band.m}</p>
-            <p class="small muted" style="margin:6px 0 0">Nộp lúc ${dateStr(a.date)} · làm trong ${Math.round(a.usedMs / 60000)} phút · ${a.mode === 'strict' ? 'thi thật' : 'luyện tập'}${a.away && a.away.n ? ` · rời trang ${a.away.n} lần` : ''}${a.reason === 'timeout' ? ' · nộp tự động khi hết giờ' : ''}</p>
+            <p class="small muted" style="margin:6px 0 0">Nộp lúc ${dateStr(a.date)} · làm trong ${Math.round(a.usedMs / 60000)} phút · ${a.mode === 'strict' ? 'thi thật' : a.mode === 'learn' ? 'luyện tập – chấm ngay' : 'thi thử'}${a.away && a.away.n ? ` · rời trang ${a.away.n} lần` : ''}${a.reason === 'timeout' ? ' · nộp tự động khi hết giờ' : ''}</p>
           </div>
         </div>
       </div>
