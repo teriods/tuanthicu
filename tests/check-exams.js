@@ -9,7 +9,7 @@ const root = path.join(__dirname, '..');
 const ctx = { console, Math, Date, JSON };
 ctx.globalThis = ctx;
 vm.createContext(ctx);
-['js/core.js', 'js/data/math.js', 'js/data/physics.js', 'js/data/chemistry.js', 'js/data/classic.js', 'js/exam.js'].forEach((f) => {
+['js/core.js', 'js/data/math.js', 'js/data/physics.js', 'js/data/chemistry.js', 'js/data/classic.js', 'js/data/guide.js', 'js/exam.js'].forEach((f) => {
   vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f });
 });
 const LT = ctx.LT;
@@ -87,6 +87,17 @@ for (const subj of Object.keys(LT.SUBJECTS)) {
   if (!LT.shortCorrect({ ans: -3, dp: 0 }, '−3')) fail('dấu trừ unicode');
 })();
 
+// cẩm nang phải phủ mọi chủ đề
+for (const subj of Object.keys(LT.SUBJECTS)) {
+  for (const t of LT.TOPICS[subj]) {
+    const g = (LT.GUIDE[subj] || {})[t];
+    if (!g || !g.m.length || !g.t.length) fail(`Thiếu cẩm nang cho ${subj} / ${t}`);
+    if (!(LT.KNOW[subj] || {})[t]) fail(`Thiếu kiến thức cho ${subj} / ${t}`);
+  }
+  // gợi ý đề hoạt động
+  const rec = LT.recommend(subj, [{ subj, no: 1, score: 4, date: 1, topics: { [LT.TOPICS[subj][0]]: [0, 1] } }]);
+  if (!(rec.no >= 1 && rec.no <= 40)) fail(`Gợi ý đề ${subj} sai mức: ${rec.no}`);
+}
 console.table(stats);
 if (errors) { console.error(`\n${errors} lỗi.`); process.exit(1); }
 console.log('\n✓ Tất cả đề hợp lệ.');

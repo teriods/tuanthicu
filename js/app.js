@@ -19,7 +19,9 @@
     const el = document.createElement('div');
     el.className = 'toast ' + (kind || '');
     el.innerHTML = msg;
-    document.getElementById('toasts').appendChild(el);
+    const box = document.getElementById('toasts');
+    box.appendChild(el);
+    while (box.children.length > 2) box.firstChild.remove();
     setTimeout(() => el.remove(), ms || 4000);
   }
   function modal(o) {
@@ -85,6 +87,7 @@
     if (h[0] === 'exam' && LT.SUBJECTS[h[1]]) return viewExam(h[1], clampNo(h[2]));
     if (h[0] === 'result') return viewResult(h[1]);
     if (h[0] === 'history') return viewHistory();
+    if (h[0] === 'hoc' && LT.SUBJECTS[h[1]]) return viewHandbook(h[1], h[2] ? decodeURIComponent(h[2]) : null);
     return viewHome();
   }
   const clampNo = (n) => Math.min(LT.EXAMS_PER_SUBJECT, Math.max(1, parseInt(n, 10) || 1));
@@ -92,61 +95,80 @@
 
   /* ---------------- Trang chủ ---------------- */
   function resumeCard() {
-    const a = Store.getActive();
-    if (!a || !LT.SUBJECTS[a.subj]) return '';
-    const S = LT.SUBJECTS[a.subj];
-    const ex = LT.getExam(a.subj, a.no);
-    const n = countAnswered(ex, a.answers);
-    return `<div class="card resume" style="margin-top:16px">
-      <h3>⏸ Bạn có bài thi đang làm dở</h3>
-      <p class="small" style="margin:4px 0 10px">${S.name} – Đề số ${a.no} · đã làm ${n}/${ex.questions.length} câu · ${a.mode === 'strict' ? 'thi thật' : 'còn ' + clock(a.remainingMs)} · lưu lúc ${timeStr(a.updatedAt)}</p>
-      <div class="row"><a class="btn primary" href="#/exam/${a.subj}/${a.no}">Tiếp tục làm bài</a><button class="btn ghost danger" data-act="discard">Huỷ bài này</button></div>
-    </div>`;
+    const list = Store.listActive().filter((a) => LT.SUBJECTS[a.subj]);
+    if (!list.length) return '';
+    return list.map((a) => {
+      const S = LT.SUBJECTS[a.subj];
+      const ex = LT.getExam(a.subj, a.no);
+      const n = countAnswered(ex, a.answers);
+      return `<div class="card resume" style="margin-top:12px">
+        <h3>⏸ ${S.name} – Đề số ${a.no} đang làm dở</h3>
+        <p class="small" style="margin:4px 0 10px">Đã làm ${n}/${ex.questions.length} câu · ${a.mode === 'strict' ? 'thi thật' : 'còn ' + clock(a.remainingMs)} · lưu lúc ${timeStr(a.updatedAt).slice(0, 5)}</p>
+        <div class="row"><a class="btn primary" href="#/exam/${a.subj}/${a.no}">Làm tiếp</a><button class="btn ghost danger" data-discard="${a.subj}">Bỏ bài này</button></div>
+      </div>`;
+    }).join('');
+  }
+  function bindDiscard() {
+    app.querySelectorAll('[data-discard]').forEach((b) => (b.onclick = () => confirmDiscard(b.dataset.discard, () => route())));
+  }
+  function learnStreak() {
+    const days = new Set(Store.attempts().map((a) => new Date(a.date).toDateString()));
+    let n = 0; const d = new Date();
+    if (!days.has(d.toDateString())) d.setDate(d.getDate() - 1);
+    while (days.has(d.toDateString())) { n++; d.setDate(d.getDate() - 1); }
+    return n;
   }
   function viewHome() {
+    const atts = Store.attempts();
     const cards = Object.values(LT.SUBJECTS).map((S) => {
       const st = subjStats(S.key);
+      const act = Store.getActive(S.key);
+      const rec = LT.recommend(S.key, atts);
       const p = (st.done / LT.EXAMS_PER_SUBJECT) * 100;
-      return `<a class="card subject ${S.color}" href="#/s/${S.key}">
-        <div class="row"><span class="ic">${S.icon}</span><div><h3 style="margin:0">${S.name}</h3><span class="muted small">${LT.EXAMS_PER_SUBJECT} đề · ${S.minutes} phút/đề</span></div></div>
+      return `<div class="card subject ${S.color}">
+        <div class="row"><span class="ic">${S.icon}</span><div><h3 style="margin:0">${S.name}</h3><span class="muted small">${S.minutes} phút · đã làm ${st.done}/${LT.EXAMS_PER_SUBJECT} đề${st.ravg == null ? '' : ' · TB gần đây <b>' + fmt(st.ravg) + '</b>'}</span></div></div>
         <div class="bar"><i style="width:${p}%"></i></div>
-        <div class="stats"><span>Đã làm <b>${st.done}</b>/${LT.EXAMS_PER_SUBJECT}</span><span>TB <b>${st.avg == null ? '–' : fmt(st.avg)}</b></span><span>5 lần gần nhất <b>${st.ravg == null ? '–' : fmt(st.ravg)}</b></span></div>
-      </a>`;
+        <button class="btn primary big" data-go="${S.key}">${act ? `▶ Làm tiếp Đề ${act.no}` : `▶ Vào thi ngay · Đề ${rec.no}`}</button>
+        <span class="small muted">${act ? 'Bài làm dở được giữ nguyên.' : '🎯 ' + rec.why}</span>
+        <div class="row small"><a href="#/s/${S.key}">Chọn đề khác</a><span class="muted">·</span><a href="#/hoc/${S.key}">Sổ tay kiến thức</a></div>
+      </div>`;
     }).join('');
+    const set = Store.settings();
+    const streak = learnStreak();
+    const cheer = LT.pickCheer(LT.CHEER.daily, Math.floor(Date.now() / 86400000));
     app.innerHTML = `
       <section class="hero">
         <h1>Luyện đề thi tốt nghiệp THPT 2027 – Khối A</h1>
-        <p class="muted">Toán, Vật lí, Hoá học theo đúng cấu trúc đề mới (Chương trình GDPT 2018): trắc nghiệm nhiều lựa chọn, đúng/sai và trả lời ngắn. Mỗi môn ${LT.EXAMS_PER_SUBJECT} đề, bám sát các dạng bài xuất hiện nhiều trong đề thi 2009–2025, có giải thích kiến thức từng câu, chấm điểm và nhận xét sau khi nộp bài.</p>
-        <p class="small" style="margin-top:8px">✅ Chế độ <b>Luyện tập – chấm ngay</b>: chọn xong biết ngay đúng/sai và xem cách giải.</p>
+        <p class="cheer">💬 ${cheer}</p>
+        ${streak ? `<p class="small" style="margin-top:6px">🔥 Bạn đã luyện <b>${streak} ngày liên tiếp</b>. Đừng để chuỗi bị đứt nhé!</p>` : ''}
       </section>
       ${resumeCard()}
-      <h2>Chọn môn luyện thi</h2>
+      <h2>Chọn môn và vào thi</h2>
       <div class="grid c3">${cards}</div>
-      <h2>Cấu trúc đề & cách tính điểm</h2>
-      <div class="card small">
-        <table class="tbl" style="display:table;width:100%">
+      <div class="card small" style="margin-top:16px">
+        <label class="switch"><input type="checkbox" id="opt-instant" ${set.instant ? 'checked' : ''}><span>Hiện đáp án và lời giải ngay sau mỗi câu</span></label>
+        <label class="switch"><input type="checkbox" id="opt-strict" ${set.strict ? 'checked' : ''}><span>Tính giờ như thi thật (không dừng đồng hồ khi rời trang)</span></label>
+      </div>
+      <details class="card small" style="margin-top:16px"><summary>Cấu trúc đề & cách tính điểm</summary>
+        <table class="tbl" style="display:table;width:100%;margin-top:10px">
           <tr><th></th><th>Toán (90 phút)</th><th>Vật lí / Hoá học (50 phút)</th></tr>
           <tr><th>Phần I – nhiều lựa chọn</th><td>12 câu × 0,25 đ</td><td>18 câu × 0,25 đ</td></tr>
           <tr><th>Phần II – đúng/sai</th><td colspan="2">4 câu, mỗi câu 4 ý: đúng 1 ý 0,1 đ · 2 ý 0,25 đ · 3 ý 0,5 đ · 4 ý 1 đ</td></tr>
           <tr><th>Phần III – trả lời ngắn</th><td>6 câu × 0,5 đ</td><td>6 câu × 0,25 đ</td></tr>
         </table>
-        <p class="muted" style="margin:8px 0 0">Đề 1–40: mức Cơ bản · 41–80: Trung bình · 81–120: Vận dụng (xếp theo thứ tự luyện tập gợi ý).</p>
-      </div>
-      <h2>Không lo mất bài</h2>
-      <div class="feat">
-        <div><b>💾 Tự động lưu từng thao tác</b>Mỗi lựa chọn được lưu ngay vào máy, kèm bản sao dự phòng.</div>
-        <div><b>📵 Mất mạng vẫn làm tiếp</b>Đề được tạo trên máy, không cần mạng khi đang làm. Có thể cài như ứng dụng để mở cả khi ngoại tuyến.</div>
-        <div><b>📞 Có cuộc gọi đến?</b>Ở chế độ Luyện tập, đồng hồ tự dừng khi bạn rời trang và chạy tiếp khi bạn quay lại.</div>
-        <div><b>🔄 Lỡ tắt trình duyệt?</b>Mở lại trang web, bài làm dở sẽ được khôi phục đúng chỗ.</div>
-      </div>
+        <p class="muted">Mỗi môn ${LT.EXAMS_PER_SUBJECT} đề bám sát các dạng bài trong đề thi 2009–2025 (Chương trình GDPT 2018). Bài làm tự lưu trên máy, mất mạng hay có cuộc gọi vẫn không mất bài.</p>
+      </details>
       <footer class="foot">Dữ liệu học tập chỉ lưu trên thiết bị của bạn. Có thể sao lưu ở mục <a href="#/history">Lịch sử</a>.</footer>`;
-    const d = app.querySelector('[data-act="discard"]');
-    d && (d.onclick = () => confirmDiscard(() => route()));
+    bindDiscard();
+    app.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => quickStart(b.dataset.go)));
+    const saveOpt = () => { Store.saveSettings(Object.assign(Store.settings(), { instant: document.getElementById('opt-instant').checked, strict: document.getElementById('opt-strict').checked })); toast('Đã lưu cài đặt – áp dụng cho bài thi mới.'); };
+    document.getElementById('opt-instant').onchange = saveOpt;
+    document.getElementById('opt-strict').onchange = saveOpt;
   }
-  function confirmDiscard(after) {
+  function confirmDiscard(subj, after) {
     modal({
-      title: 'Huỷ bài đang làm?', body: '<p>Bài làm dở sẽ bị xoá và không được chấm điểm.</p>',
-      actions: [{ label: 'Không' }, { label: 'Huỷ bài', kind: 'danger', onClick: () => { Store.clearActive(); after && after(); } }],
+      title: 'Bỏ bài đang làm?', body: '<p>Bài làm dở sẽ bị xoá và không được chấm điểm.</p>',
+      actions: [{ label: 'Không' }, { label: 'Bỏ bài', kind: 'danger', onClick: () => { Store.clearActive(subj); after && after(); } }],
     });
   }
 
@@ -154,18 +176,19 @@
   function viewSubject(subj) {
     const S = LT.SUBJECTS[subj];
     const st = subjStats(subj);
-    const active = Store.getActive();
+    const active = Store.getActive(subj);
+    const rec = LT.recommend(subj, Store.attempts());
     let filter = sessionStorage.getItem('lt-filter-' + subj) || 'all';
     const draw = () => {
       const tiles = [];
       for (let no = 1; no <= LT.EXAMS_PER_SUBJECT; no++) {
         const lv = LT.level(no), m = st.map[no];
-        const doing = active && active.subj === subj && active.no === no;
+        const doing = active && active.no === no;
         if (filter === 'todo' && m) continue;
         if (filter === 'done' && !m) continue;
         if (/^l\d$/.test(filter) && 'l' + lv.k !== filter) continue;
         tiles.push(`<button class="exam-tile ${m ? 'done' : ''} ${doing ? 'doing' : ''}" data-no="${no}">
-          <span class="n">Đề số ${no}</span><span class="tag l${lv.k}">${lv.name}</span>
+          <span class="n">Đề số ${no}${no === rec.no && !m ? ' <span title="Đề gợi ý">🎯</span>' : ''}</span><span class="tag l${lv.k}">${lv.name}</span>
           <span class="sc">${doing ? '⏸ Đang làm dở' : m ? `Cao nhất <span class="score-chip ${scoreCls(m.best)}">${fmt(m.best)}</span> · ${m.n} lần` : 'Chưa làm'}</span>
         </button>`);
       }
@@ -183,12 +206,15 @@
       <h1>${S.icon} ${S.name} – ${LT.EXAMS_PER_SUBJECT} đề luyện tập</h1>
       <div class="stats" style="margin-bottom:8px"><span>Thời gian <b>${S.minutes} phút</b></span><span>${S.parts.mc} câu nhiều lựa chọn · ${S.parts.tf} câu đúng/sai · ${S.parts.sa} câu trả lời ngắn</span></div>
       <div class="stats"><span>Đã làm <b>${st.done}</b>/${LT.EXAMS_PER_SUBJECT} đề</span><span>Số lượt <b>${st.n}</b></span><span>Điểm TB <b>${st.avg == null ? '–' : fmt(st.avg)}</b></span></div>
+      <div class="card rec" style="margin-top:12px"><div class="row"><div style="flex:1;min-width:200px"><b>🎯 Đề gợi ý cho bạn: Đề số ${rec.no}</b> <span class="tag l${rec.level}">${rec.levelName}</span><br><span class="small muted">${rec.why}</span></div><button class="btn primary" data-rec="${rec.no}">${active ? 'Làm tiếp Đề ' + active.no : 'Vào thi'}</button></div></div>
+      <p class="small"><a href="#/hoc/${subj}">📚 Sổ tay kiến thức ${S.name}</a></p>
       ${weak.length ? `<div class="card small" style="margin-top:12px">📌 Chủ đề cần ôn thêm (tích luỹ qua các lần làm): ${weak.map((w) => `<b>${esc(w.t)}</b> (${Math.round(w.p * 100)}%)`).join(' · ')}</div>` : ''}
       <div class="pill-tabs">
         <button data-f="all">Tất cả</button><button data-f="todo">Chưa làm</button><button data-f="done">Đã làm</button>
         <button data-f="l1">Cơ bản (1–40)</button><button data-f="l2">Trung bình (41–80)</button><button data-f="l3">Vận dụng (81–120)</button>
       </div>
       <div class="exam-grid"></div>`;
+    app.querySelector('[data-rec]').onclick = () => quickStart(subj);
     app.querySelector('.pill-tabs').onclick = (e) => {
       const b = e.target.closest('button'); if (!b) return;
       filter = b.dataset.f; sessionStorage.setItem('lt-filter-' + subj, filter); draw();
@@ -200,50 +226,34 @@
     draw();
   }
 
-  /* ---------------- Bắt đầu bài thi ---------------- */
+  /* ---------------- Bắt đầu bài thi (không hỏi gì thêm) ---------------- */
+  function quickStart(subj) {
+    const a = Store.getActive(subj);
+    if (a) return go(`#/exam/${subj}/${a.no}`);
+    startNow(subj, LT.recommend(subj, Store.attempts()).no);
+  }
   function requestStart(subj, no) {
-    const a = Store.getActive();
-    if (a && a.subj === subj && a.no === no) return go(`#/exam/${subj}/${no}`);
-    if (a && LT.SUBJECTS[a.subj]) {
-      const S2 = LT.SUBJECTS[a.subj];
+    const a = Store.getActive(subj);
+    if (a && a.no === no) return go(`#/exam/${subj}/${no}`);
+    if (a) {
       return modal({
-        title: 'Bạn đang làm dở một bài khác',
-        body: `<p>${S2.name} – Đề số ${a.no} chưa nộp. Bạn muốn làm gì với bài đó?</p>`,
+        title: `Đề số ${a.no} đang làm dở`,
+        body: `<p>Bạn muốn làm tiếp Đề ${a.no} hay bỏ bài đó để làm Đề ${no}?</p>`,
         actions: [
-          { label: 'Tiếp tục bài đó', kind: 'primary', onClick: () => go(`#/exam/${a.subj}/${a.no}`) },
-          { label: 'Nộp bài đó', onClick: () => { submitSession(a, 'switch'); startModal(subj, no); } },
-          { label: 'Huỷ bài đó', kind: 'danger', onClick: () => { Store.clearActive(); startModal(subj, no); } },
+          { label: `Bỏ, làm Đề ${no}`, onClick: () => { Store.clearActive(subj); startNow(subj, no); } },
+          { label: `Làm tiếp Đề ${a.no}`, kind: 'primary', onClick: () => go(`#/exam/${subj}/${a.no}`) },
         ],
       });
     }
-    startModal(subj, no);
+    startNow(subj, no);
   }
-  function startModal(subj, no, onCancel) {
+  function startNow(subj, no) {
     const S = LT.SUBJECTS[subj];
     const set = Store.settings();
-    const lv = LT.level(no);
-    modal({
-      title: `${S.name} – Đề số ${no}`,
-      dismiss: !onCancel,
-      body: `<p class="small muted">Mức ${lv.name} · ${S.minutes} phút · ${S.parts.mc + S.parts.tf + S.parts.sa} câu</p>
-        <label class="choice"><input type="radio" name="mode" value="learn" ${set.mode === 'learn' ? 'checked' : ''}><span><b>Luyện tập – chấm ngay</b><br><span class="small muted">Chọn xong biết ngay đúng/sai và xem cách giải từng câu. Đồng hồ tự dừng khi bạn rời trang.</span></span></label>
-        <label class="choice"><input type="radio" name="mode" value="practice" ${set.mode === 'practice' ? 'checked' : ''}><span><b>Thi thử</b><br><span class="small muted">Chấm điểm khi nộp bài. Đồng hồ tự dừng khi bạn rời trang (nghe điện thoại, chuyển ứng dụng…), có nút tạm dừng.</span></span></label>
-        <label class="choice"><input type="radio" name="mode" value="strict" ${set.mode === 'strict' ? 'checked' : ''}><span><b>Thi thật</b><br><span class="small muted">Đồng hồ chạy liên tục như phòng thi, không tạm dừng. Hết giờ tự động nộp bài.</span></span></label>
-        <p class="small muted">Bài làm luôn được tự động lưu trên máy ở cả hai chế độ.</p>`,
-      actions: [
-        { label: 'Để sau', onClick: () => onCancel && onCancel() },
-        {
-          label: 'Bắt đầu làm bài', kind: 'primary',
-          onClick: (el) => {
-            const mode = el.querySelector('input[name=mode]:checked').value;
-            Store.saveSettings(Object.assign(set, { mode }));
-            const now = Date.now(), total = S.minutes * 60000;
-            Store.setActive({ id: 's' + now.toString(36), subj, no, version: LT.getExam(subj, no).version, mode, totalMs: total, remainingMs: total, deadline: now + total, startedAt: now, updatedAt: now, answers: [], flags: [], checked: [], warned: [], fresh: true, away: { n: 0, ms: 0 }, tab: TAB });
-            go(`#/exam/${subj}/${no}`);
-          },
-        },
-      ],
-    });
+    const mode = set.strict ? 'strict' : set.instant ? 'learn' : 'practice';
+    const now = Date.now(), total = S.minutes * 60000;
+    Store.setActive({ id: 's' + now.toString(36), subj, no, version: LT.getExam(subj, no).version, mode, totalMs: total, remainingMs: total, deadline: now + total, startedAt: now, updatedAt: now, answers: [], flags: [], checked: [], warned: [], fresh: true, away: { n: 0, ms: 0 }, tab: TAB });
+    go(`#/exam/${subj}/${no}`);
   }
 
   function countAnswered(ex, answers) {
@@ -308,8 +318,35 @@
       <div class="q-head">${num}<span class="q-topic">${esc(q.topic)}</span>${badge}${full ? `<span class="verdict ${verdict}">${vt[verdict]}</span>${pts}` : ''}${flagBtn}</div>
       <div class="q-text">${q.q}</div>
       ${body}
-      ${full ? `<details ${verdict !== 'ok' || learn ? 'open' : ''}><summary>Giải thích kiến thức & lời giải</summary><div class="explain">${q.kn ? `<div class="k">${q.kn}</div>` : ''}${q.part !== 'tf' ? `<div class="s">${q.sol}</div>` : '<div class="s">Xem giải thích từng ý ở trên.</div>'}</div></details>` : ''}
+      ${full ? `<details ${verdict !== 'ok' || learn ? 'open' : ''}><summary>Giải thích chi tiết</summary>${explainHTML(q, ans)}</details>` : ''}
     </article>`;
+  }
+  /* Tách lời giải thành các bước */
+  function solSteps(sol) {
+    if (!sol) return [];
+    return sol.split(/\.\s+(?=[A-ZĐÂĂÊÔƠƯÁÀẢÃẠÉÈÍÓÒÚÙÝ(Δ∫√]|[a-z]\)|Với|Từ|Vì|Ta|Áp|Bảo|Hàm)/).map((x) => x.trim()).filter(Boolean).map((x) => (/[.!?]$/.test(x) ? x : x + '.'));
+  }
+  function explainHTML(q, ans) {
+    const g = ((LT.GUIDE || {})[q.subj] || {})[q.topic];
+    let key = '';
+    if (q.part === 'mc') {
+      key = `<div class="ex-key">✅ Đáp án đúng: <b>${L[q.ans]}.</b> ${q.opts[q.ans]}</div>`;
+      if (ans != null && ans !== q.ans) key += `<div class="ex-mine">❌ Bạn chọn <b>${L[ans]}.</b> ${q.opts[ans]} – phương án này là “bẫy” thường gặp${g && g.t.length ? ', xem mục Lỗi thường gặp bên dưới' : ''}.</div>`;
+    } else if (q.part === 'sa') {
+      key = `<div class="ex-key">✅ Đáp số: <b>${U.numF(q.ans, q.dp)}</b>${q.dp ? ` (làm tròn đến ${['hàng đơn vị', 'hàng phần mười', 'hàng phần trăm', 'hàng phần nghìn'][q.dp]})` : ''}</div>`;
+    } else {
+      key = `<div class="ex-key">✅ Đáp án: ${q.items.map((it, j) => `${'abcd'[j]}) <b>${it.v ? 'Đúng' : 'Sai'}</b>`).join(' · ')}</div>`;
+    }
+    const steps = q.part === 'tf' ? q.items.map((it, j) => `<b>Ý ${'abcd'[j]}</b> (${it.v ? 'Đúng' : 'Sai'}): ${it.sol || ''}`) : solSteps(q.sol);
+    const links = LT.learnLinks ? LT.learnLinks(q.subj, q.topic) : [];
+    return `<div class="explain">
+      ${key}
+      ${q.kn ? `<div class="ex-sec k"><h4>📘 Kiến thức cần nhớ</h4>${q.kn}</div>` : ''}
+      ${g ? `<div class="ex-sec"><h4>🧭 Phương pháp giải</h4><ol>${g.m.map((x) => `<li>${x}</li>`).join('')}</ol></div>` : ''}
+      <div class="ex-sec"><h4>✍ Lời giải chi tiết</h4><ol class="steps">${steps.map((x) => `<li>${x}</li>`).join('')}</ol></div>
+      ${g && g.t.length ? `<div class="ex-sec warn"><h4>⚠ Lỗi thường gặp</h4><ul>${g.t.map((x) => `<li>${x}</li>`).join('')}</ul></div>` : ''}
+      <div class="ex-sec links"><h4>🔗 Học thêm: ${esc(q.topic)}</h4>${links.map((l) => `<a href="${l.u}" target="_blank" rel="noopener">${l.t}</a>`).join('')}<a href="#/hoc/${q.subj}">📚 Sổ tay trong ứng dụng</a></div>
+    </div>`;
   }
   function feedbackBuzz(ok) { try { navigator.vibrate && navigator.vibrate(ok ? 30 : [60, 50, 60]); } catch (e) { /* */ } }
   /* Chấm một câu (dùng cho chế độ chấm ngay) */
@@ -332,13 +369,13 @@
   function viewExam(subj, no) {
     const S = LT.SUBJECTS[subj];
     const ex = LT.getExam(subj, no);
-    let sess = Store.getActive();
-    if (!sess || sess.subj !== subj || sess.no !== no) {
+    let sess = Store.getActive(subj);
+    if (!sess || sess.no !== no) {
       app.innerHTML = `<p class="small"><a href="#/s/${subj}">← ${S.name}</a></p><div class="empty">Chưa bắt đầu đề này.</div>`;
       return requestStart(subj, no);
     }
     if (sess.version && sess.version !== ex.version) {
-      Store.clearActive();
+      Store.clearActive(subj);
       toast('Ngân hàng đề vừa được cập nhật nên bài làm dở của phiên bản cũ không thể tiếp tục. Mời bạn bắt đầu lại.', 'warn', 7000);
       return requestStart(subj, no);
     }
@@ -404,6 +441,15 @@
       let pts = 0, right = 0;
       qs.forEach((q, i) => { if (q.part === 'sa' && !sess.checked[i]) return; const g = gradeOne(q, sess.answers[i]); pts += g.pts; if (g.ok) right++; });
       $cnt2.textContent = `đúng ${right} · ${fmt(pts)} điểm`;
+    }
+    let streakN = 0, nAns = 0;
+    function cheerOn(ok) {
+      feedbackBuzz(ok); nAns++;
+      if (ok) {
+        streakN++;
+        const msg = LT.CHEER.streak[streakN];
+        toast(msg || LT.pickCheer(LT.CHEER.right, nAns), msg ? 'good' : 'good mini', msg ? 3000 : 1300);
+      } else { streakN = 0; toast(LT.pickCheer(LT.CHEER.wrong, nAns), 'mini', 2200); }
     }
     function rerender(i) {
       const el = document.getElementById('q' + i); if (!el) return;
@@ -480,7 +526,7 @@
     const onHide = () => save(true);
     const onNet = () => save(true);
     const onStorage = (e) => {
-      if (e.key !== 'ltA26:active' || !e.newValue) return;
+      if (e.key !== 'ltA26:active.' + subj || !e.newValue) return;
       try { const o = JSON.parse(e.newValue); if (o.id === sess.id && o.tab !== TAB) toast('Bài thi này đang được mở ở một tab khác. Hãy chỉ làm ở một tab để tránh ghi đè.', 'warn', 6000); } catch (x) { /* */ }
     };
     document.addEventListener('visibilitychange', onVis);
@@ -514,14 +560,14 @@
         const v = !learn && sess.answers[i] === j ? null : j;
         t.parentElement.querySelectorAll('.opt').forEach((b, k) => b.classList.toggle('sel', k === v));
         setAns(i, v);
-        if (learn) { rerender(i); feedbackBuzz(qs[i].ans === v); }
+        if (learn) { rerender(i); cheerOn(qs[i].ans === v); }
       } else if (t.dataset.t != null) {
         const i = +t.dataset.q, j = +t.dataset.t, val = t.dataset.v === '1';
         const arr = Array.isArray(sess.answers[i]) ? sess.answers[i].slice() : [null, null, null, null];
         arr[j] = !learn && arr[j] === val ? null : val;
         t.parentElement.querySelectorAll('button').forEach((b) => { const on = arr[j] === (b.dataset.v === '1'); b.classList.toggle('sel', on); b.setAttribute('aria-pressed', on); });
         setAns(i, arr);
-        if (learn) { rerender(i); feedbackBuzz(qs[i].items[j].v === val); }
+        if (learn) { rerender(i); cheerOn(qs[i].items[j].v === val); }
       } else if (t.dataset.flag != null) {
         const i = +t.dataset.flag;
         sess.flags[i] = !sess.flags[i];
@@ -534,7 +580,7 @@
         if (!inp.value.trim()) { toast('Hãy nhập đáp số trước khi kiểm tra.'); inp.focus(); return; }
         if (isNaN(LT.parseShort(inp.value))) { toast('Đáp số chưa đúng định dạng số (ví dụ: 12 hoặc −2,5).', 'warn'); inp.focus(); return; }
         sess.answers[i] = inp.value; sess.checked[i] = true; save(); updCount();
-        rerender(i); feedbackBuzz(LT.shortCorrect(qs[i], inp.value));
+        rerender(i); cheerOn(LT.shortCorrect(qs[i], inp.value));
       } else if (t.dataset.sign != null) {
         const i = +t.dataset.sign;
         const inp = app.querySelector(`input[data-q="${i}"]`);
@@ -615,7 +661,7 @@
       parts: { mc: res.parts.mc.got, tf: res.parts.tf.got, sa: res.parts.sa.got }, topics,
       answers: sess.answers, usedMs: used, mode: sess.mode, away: sess.away, reason,
     });
-    Store.clearActive();
+    Store.clearActive(sess.subj);
     if (reason !== 'switch') go('#/result/' + id);
     return id;
   }
@@ -642,7 +688,34 @@
       if (q.part !== lp) { reviewHtml += partHeader(q.part, S); lp = q.part; }
       reviewHtml += `<div data-ok="${res.items[i].ok ? 1 : 0}">${renderQ(q, i, a.answers[i], true, false, res.items[i])}</div>`;
     });
-    const nextNo = a.no < LT.EXAMS_PER_SUBJECT ? a.no + 1 : 1;
+    const all = Store.attempts();
+    const sum = LT.summary(a.subj, all);
+    const rec = LT.recommend(a.subj, all);
+    const cheer = LT.pickCheer(LT.CHEER.result[fb.band.k], a.date);
+    const pct = (x) => Math.round(x * 100);
+    const trendSvg = (() => {
+      const t = sum.trend, w = 280, h = 70, bw = w / Math.max(t.length, 1);
+      return `<svg class="spark" viewBox="0 0 ${w} ${h + 16}" role="img" aria-label="Điểm các lần làm gần nhất">${t.map((v, k) => `<rect x="${k * bw + 3}" y="${h - (v / 10) * h}" width="${bw - 6}" height="${Math.max(2, (v / 10) * h)}" rx="3" class="${v >= 8 ? 'hi' : v >= 5 ? 'mid' : 'lo'}"><title>${fmt(v)}</title></rect><text x="${k * bw + bw / 2}" y="${h + 13}" text-anchor="middle">${fmt(v)}</text>`).join('')}</svg>`;
+    })();
+    const mastery = sum.topics.map((t) => `<div class="topic-row"><span>${esc(t.t)}${t.p < 0.6 ? ` <a class="small" href="${LT.learnLinks(a.subj, t.t)[0].u}" target="_blank" rel="noopener">học thêm ↗</a>` : ''}</span><div class="bar"><i class="${t.p < 0.5 ? 'lo' : t.p < 0.8 ? 'mid' : 'hi'}" style="width:${Math.max(3, pct(t.p))}%"></i></div><span class="muted">${pct(t.p)}%</span></div>`).join('');
+    const evalHtml = `
+      <h2>Đánh giá tổng hợp môn ${S.name}</h2>
+      <div class="card">
+        <div class="kpis">
+          <div><span>Điểm dự kiến</span><b>${fmt(sum.lo)} – ${fmt(sum.hi)}</b><small>dựa trên ${Math.min(5, sum.n)} lần gần nhất</small></div>
+          <div><span>Cao nhất</span><b>${fmt(sum.best)}</b><small>${sum.n} lần làm</small></div>
+          <div><span>Tiến bộ</span><b>${sum.gain == null ? '–' : (sum.gain >= 0 ? '+' : '') + fmt(sum.gain)}</b><small>${sum.gain == null ? 'cần ≥ 4 lần làm' : 'so với 3 lần đầu'}</small></div>
+          <div><span>Chủ đề vững</span><b>${sum.mastered}/${sum.total}</b><small>đạt ≥ 80%</small></div>
+          <div><span>Thời gian luyện</span><b>${sum.minutes} phút</b><small>${sum.streak ? '🔥 ' + sum.streak + ' ngày liên tiếp' : 'hãy luyện mỗi ngày'}</small></div>
+        </div>
+        <h3 style="margin-top:14px">Điểm các lần gần nhất</h3>${trendSvg}
+        <h3 style="margin-top:14px">Tỉ lệ điểm theo phần (trung bình)</h3>
+        <div class="topic-row"><span>Phần I – nhiều lựa chọn</span><div class="bar"><i class="${sum.parts.mc < 0.5 ? 'lo' : sum.parts.mc < 0.8 ? 'mid' : 'hi'}" style="width:${pct(sum.parts.mc)}%"></i></div><span class="muted">${pct(sum.parts.mc)}%</span></div>
+        <div class="topic-row"><span>Phần II – đúng/sai</span><div class="bar"><i class="${sum.parts.tf < 0.5 ? 'lo' : sum.parts.tf < 0.8 ? 'mid' : 'hi'}" style="width:${pct(sum.parts.tf)}%"></i></div><span class="muted">${pct(sum.parts.tf)}%</span></div>
+        <div class="topic-row"><span>Phần III – trả lời ngắn</span><div class="bar"><i class="${sum.parts.sa < 0.5 ? 'lo' : sum.parts.sa < 0.8 ? 'mid' : 'hi'}" style="width:${pct(sum.parts.sa)}%"></i></div><span class="muted">${pct(sum.parts.sa)}%</span></div>
+        <h3 style="margin-top:14px">Mức độ nắm vững từng chủ đề (tích luỹ)</h3>${mastery}
+      </div>
+      <div class="card rec" style="margin-top:12px"><div class="row"><div style="flex:1;min-width:200px"><b>🎯 Đề gợi ý tiếp theo: Đề số ${rec.no}</b> <span class="tag l${rec.level}">${rec.levelName}</span><br><span class="small muted">${rec.why}</span></div><button class="btn primary" data-act="next">Vào thi Đề ${rec.no}</button></div></div>`;
     app.innerHTML = `
       <p class="small"><a href="#/s/${a.subj}">← ${S.name}</a></p>
       <div class="card">
@@ -652,6 +725,7 @@
             <h1 style="margin-top:0">${S.name} – Đề số ${a.no}</h1>
             <span class="band ${fb.band.k}">${fb.band.t}</span>
             <p style="margin:8px 0 0">${fb.band.m}</p>
+            <p class="cheer" style="margin:8px 0 0">💬 ${cheer}</p>
             <p class="small muted" style="margin:6px 0 0">Nộp lúc ${dateStr(a.date)} · làm trong ${Math.round(a.usedMs / 60000)} phút · ${a.mode === 'strict' ? 'thi thật' : a.mode === 'learn' ? 'luyện tập – chấm ngay' : 'thi thử'}${a.away && a.away.n ? ` · rời trang ${a.away.n} lần` : ''}${a.reason === 'timeout' ? ' · nộp tự động khi hết giờ' : ''}</p>
           </div>
         </div>
@@ -670,19 +744,19 @@
           <li><b>Gợi ý tiếp theo:</b> ${fb.next}</li>
         </ul>
       </div>
-      ${fb.review.length ? `<h2>Kiến thức cần ôn lại</h2>${fb.review.map((r) => `<div class="know"><b>${esc(r.t)}</b>${r.kn}</div>`).join('')}` : ''}
-      <h2>Kết quả theo chủ đề</h2>
+      ${fb.review.length ? `<h2>Kiến thức cần ôn lại</h2>${fb.review.map((r) => `<div class="know"><b>${esc(r.t)}</b>${r.kn}${(((LT.GUIDE || {})[a.subj] || {})[r.t] || { m: [] }).m.length ? `<ol class="small">${LT.GUIDE[a.subj][r.t].m.map((x) => `<li>${x}</li>`).join('')}</ol>` : ''}<div class="links">${LT.learnLinks(a.subj, r.t).map((l) => `<a href="${l.u}" target="_blank" rel="noopener">${l.t}</a>`).join('')}</div></div>`).join('')}` : ''}
+      ${evalHtml}
+      <h2>Kết quả theo chủ đề (đề này)</h2>
       <div class="card">${topicRows}</div>
       <div class="row" style="margin:20px 0">
         <button class="btn primary" data-act="again">Làm lại đề này</button>
-        <button class="btn" data-act="next">Đề tiếp theo (Đề ${nextNo})</button>
         <button class="btn ghost" onclick="window.print()">In / Lưu PDF</button>
       </div>
       <h2>Xem lại bài làm & lời giải</h2>
       <div class="pill-tabs" id="rv-filter"><button data-f="all" class="on">Tất cả</button><button data-f="wrong">Câu chưa đúng</button><button data-f="right">Câu đúng</button></div>
       <div id="review">${reviewHtml}</div>`;
     app.querySelector('[data-act="again"]').onclick = () => requestStart(a.subj, a.no);
-    app.querySelector('[data-act="next"]').onclick = () => requestStart(a.subj, nextNo);
+    app.querySelector('[data-act="next"]').onclick = () => requestStart(a.subj, rec.no);
     app.querySelector('#rv-filter').onclick = (e) => {
       const b = e.target.closest('button'); if (!b) return;
       app.querySelectorAll('#rv-filter button').forEach((x) => x.classList.toggle('on', x === b));
@@ -710,8 +784,7 @@
         <button class="btn ghost danger" data-act="clear">Xoá lịch sử</button>
       </div>
       ${Store.persistent ? '' : '<p class="card" style="margin-top:12px;color:var(--bad)">⚠ Trình duyệt đang chặn bộ nhớ cục bộ (có thể do chế độ ẩn danh). Kết quả sẽ mất khi đóng trang.</p>'}`;
-    const d = app.querySelector('[data-act="discard"]');
-    d && (d.onclick = () => confirmDiscard(() => route()));
+    bindDiscard();
     app.querySelector('[data-act="export"]').onclick = () => {
       const blob = new Blob([Store.exportAll()], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -730,20 +803,35 @@
     });
   }
 
+  /* ---------------- Sổ tay kiến thức ---------------- */
+  function viewHandbook(subj, focus) {
+    const S = LT.SUBJECTS[subj];
+    const sum = LT.summary(subj, Store.attempts());
+    const mast = {}; (sum ? sum.topics : []).forEach((t) => (mast[t.t] = t.p));
+    const items = LT.TOPICS[subj].map((t, k) => {
+      const g = (LT.GUIDE[subj] || {})[t] || { m: [], t: [] };
+      const p = mast[t];
+      return `<details class="card hb" id="t${k}" ${focus === t ? 'open' : ''}><summary><b>${esc(t)}</b>${p == null ? '' : ` <span class="score-chip ${p >= 0.8 ? '' : p >= 0.5 ? 'mid' : 'lo'}">${Math.round(p * 100)}%</span>`}</summary>
+        <div class="explain">
+          <div class="ex-sec k"><h4>📘 Kiến thức trọng tâm</h4>${(LT.KNOW[subj] || {})[t] || ''}</div>
+          ${g.m.length ? `<div class="ex-sec"><h4>🧭 Phương pháp giải</h4><ol>${g.m.map((x) => `<li>${x}</li>`).join('')}</ol></div>` : ''}
+          ${g.t.length ? `<div class="ex-sec warn"><h4>⚠ Lỗi thường gặp</h4><ul>${g.t.map((x) => `<li>${x}</li>`).join('')}</ul></div>` : ''}
+          <div class="ex-sec links"><h4>🔗 Học thêm trên Internet</h4>${LT.learnLinks(subj, t).map((l) => `<a href="${l.u}" target="_blank" rel="noopener">${l.t}</a>`).join('')}</div>
+        </div></details>`;
+    }).join('');
+    app.innerHTML = `<p class="small"><a href="#/">← Trang chủ</a></p>
+      <h1>📚 Sổ tay kiến thức ${S.name}</h1>
+      <p class="muted">Tóm tắt kiến thức, cách giải và lỗi hay gặp của ${LT.TOPICS[subj].length} chủ đề. Con số % là mức nắm vững của bạn qua các lần làm bài.</p>
+      <div class="grid" style="gap:10px">${items}</div>
+      <div class="row" style="margin-top:16px"><button class="btn primary" id="hb-go">▶ Vào thi ${S.name}</button></div>`;
+    document.getElementById('hb-go').onclick = () => quickStart(subj);
+    if (focus) { const el = app.querySelector('details[open]'); el && el.scrollIntoView(); }
+  }
+
   /* ---------------- Khởi động ---------------- */
   window.addEventListener('hashchange', route);
   netBadge();
   route();
-  // Khôi phục bài làm dở sau khi trang bị đóng (hết pin, tắt trình duyệt, cuộc gọi làm trình duyệt bị đóng…)
-  const act = Store.getActive();
-  if (act && LT.SUBJECTS[act.subj] && !location.hash.startsWith(`#/exam/${act.subj}/${act.no}`)) {
-    const S = LT.SUBJECTS[act.subj];
-    modal({
-      title: '🔄 Khôi phục bài làm dở',
-      body: `<p>Bạn đang làm <b>${S.name} – Đề số ${act.no}</b> (lưu lúc ${timeStr(act.updatedAt)} ngày ${dateStr(act.updatedAt).slice(0, 10)}). Mọi câu trả lời đã được giữ lại.</p>`,
-      actions: [{ label: 'Để sau' }, { label: 'Tiếp tục làm bài', kind: 'primary', onClick: () => go(`#/exam/${act.subj}/${act.no}`) }],
-    });
-  }
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   }

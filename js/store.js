@@ -25,18 +25,22 @@
   const Store = {
     persistent: ok,
     get, set,
-    /* Bài đang làm: ghi hai bản xen kẽ để một lần ghi hỏng (tắt máy đột ngột) không làm mất bài. */
-    getActive() {
-      const a = get('active', null), b = get('active.bak', null);
+    /* Bài đang làm: mỗi môn một bài, ghi hai bản xen kẽ để một lần ghi hỏng (tắt máy đột ngột) không làm mất bài. */
+    getActive(subj) {
+      if (!subj) { const l = Store.listActive(); return l.length ? l[0] : null; }
+      const a = get('active.' + subj, null), b = get('active.' + subj + '.bak', null);
       if (a && b) return (a.updatedAt || 0) >= (b.updatedAt || 0) ? a : b;
       return a || b || null;
     },
+    listActive() {
+      return Object.keys(LT.SUBJECTS || {}).map((k) => Store.getActive(k)).filter(Boolean).sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0));
+    },
     setActive(s) {
-      const ok1 = set('active', s);
-      const ok2 = set('active.bak', s);
+      const ok1 = set('active.' + s.subj, s);
+      const ok2 = set('active.' + s.subj + '.bak', s);
       return ok1 || ok2;
     },
-    clearActive() { rawDel('active'); rawDel('active.bak'); },
+    clearActive(subj) { rawDel('active.' + subj); rawDel('active.' + subj + '.bak'); },
     attempts() { return get('attempts', []); },
     addAttempt(a) {
       const list = Store.attempts();
@@ -51,10 +55,10 @@
     },
     attempt(id) { return Store.attempts().find((a) => a.id === id) || null; },
     clearAttempts() { rawDel('attempts'); },
-    settings() { return Object.assign({ mode: 'learn' }, get('settings', {})); },
+    settings() { return Object.assign({ instant: true, strict: false }, get('settings', {})); },
     saveSettings(s) { set('settings', s); },
     exportAll() {
-      return JSON.stringify({ app: 'luyen-thi-khoi-a-2027', exportedAt: new Date().toISOString(), attempts: Store.attempts(), active: Store.getActive(), settings: Store.settings() });
+      return JSON.stringify({ app: 'luyen-thi-khoi-a-2027', exportedAt: new Date().toISOString(), attempts: Store.attempts(), active: Store.listActive(), settings: Store.settings() });
     },
     importAll(text) {
       const d = JSON.parse(text);
@@ -68,5 +72,11 @@
       return valid.length;
     },
   };
+  // Chuyển dữ liệu bài làm dở kiểu cũ (một bài chung) sang kiểu mới (mỗi môn một bài)
+  try {
+    const old = get('active', null) || get('active.bak', null);
+    if (old && old.subj && !Store.getActive(old.subj)) Store.setActive(old);
+    rawDel('active'); rawDel('active.bak');
+  } catch (e) { /* */ }
   LT.Store = Store;
 })(window);
