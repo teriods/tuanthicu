@@ -1,5 +1,5 @@
 /* Service worker: lưu toàn bộ ứng dụng vào bộ nhớ đệm để mở được khi mất mạng. */
-const CACHE = 'ltA26-v4';
+const CACHE = 'ltA26-v5';
 const ASSETS = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest',
   'js/core.js', 'js/data/math.js', 'js/data/physics.js', 'js/data/chemistry.js', 'js/data/classic.js', 'js/data/guide.js', 'js/exam.js', 'js/store.js', 'js/app.js',

@@ -1,5 +1,5 @@
 /* DẠNG BÀI KINH ĐIỂN – những dạng xuất hiện lặp lại trong đề thi Đại học/THPT Quốc gia/Tốt nghiệp THPT
-   từ 2009 đến 2025, được chọn lọc phần còn nằm trong Chương trình GDPT 2018 và chuyển sang định dạng đề mới.
+   từ 2020 đến 2026, được chọn lọc phần còn nằm trong Chương trình GDPT 2018 và chuyển sang định dạng đề mới.
    Số liệu được sinh ngẫu nhiên; đáp án và lời giải được tính từ chính số liệu đó. */
 (function (G) {
   'use strict';
@@ -13,7 +13,7 @@
   const ninf = MINUS + '∞', pinf = '+∞';
   const iv = (a, b) => '(' + a + '; ' + b + ')';
 
-  // Bảng biến thiên (rất hay gặp trong đề 2017–2025)
+  // Bảng biến thiên (rất hay gặp trong đề 2020–2026)
   function bbt(r) {
     const x1 = r.int(-3, 1), x2 = x1 + r.int(1, 3);
     const up = r.bool(); // true: + − + ; false: − + −
@@ -100,10 +100,42 @@
     return { q: `Một chiếc phễu có dạng hình nón với bán kính đáy ${R} cm và chiều cao ${h} cm. Thể tích của phễu bằng bao nhiêu cm³ (làm tròn đến hàng đơn vị)?`, ans: Math.round(V), dp: 0, sol: `V = (1/3)πr²h = (1/3)·π·${R * R}·${h} ≈ ${num(V, 2)} ≈ ${Math.round(V)} cm³.` };
   });
 
+
+  /* Dạng phân loại nổi bật của đề tốt nghiệp 2025–2026: xác suất có điều kiện/Bayes, thể tích tròn xoay, tối ưu */
+  M('sa', TM.xs, (r) => {
+    const prev = r.pick([1, 2, 5, 10]), sens = r.pick([90, 95, 98, 99]), fp = r.pick([2, 3, 5, 10]);
+    const pD = prev / 100, pPos = pD * sens / 100 + (1 - pD) * fp / 100;
+    const ans = (pD * sens / 100) / pPos;
+    return {
+      q: `Một bệnh có tỉ lệ mắc trong cộng đồng là ${prev}%. Một xét nghiệm cho kết quả dương tính với ${sens}% người mắc bệnh và cho kết quả dương tính (nhầm) với ${fp}% người không mắc bệnh. Một người xét nghiệm có kết quả dương tính. Tính xác suất người đó thực sự mắc bệnh (làm tròn đến hàng phần trăm).`,
+      ans: round(ans, 2), dp: 2,
+      sol: `Gọi A: “mắc bệnh”, B: “dương tính”. P(A) = ${num(pD)}; P(B|A) = ${num(sens / 100)}; P(B|Ā) = ${num(fp / 100)}. Xác suất toàn phần: P(B) = ${num(pD)}·${num(sens / 100)} + ${num(1 - pD)}·${num(fp / 100)} = ${num(pPos, 4)}. Công thức Bayes: P(A|B) = P(A)·P(B|A)/P(B) = ${num(pD * sens / 100, 4)}/${num(pPos, 4)} ≈ ${numF(round(ans, 2), 2)}.`,
+    };
+  });
+  M('sa', 'Tích phân & ứng dụng', (r) => {
+    const a = r.int(2, 6), k = r.pick([1, 2, 3]);
+    // quay y = k√x, 0 ≤ x ≤ a quanh Ox: V = π k² a²/2
+    const V = Math.PI * k * k * a * a / 2;
+    return {
+      q: `Một chiếc bình có dạng vật thể tròn xoay tạo thành khi quay hình phẳng giới hạn bởi đường cong y = ${k === 1 ? '' : k}√x, trục Ox và đường thẳng x = ${a} (đơn vị dm) quanh trục Ox. Tính thể tích của bình (đơn vị dm³, làm tròn đến hàng phần mười).`,
+      ans: round(V, 1), dp: 1,
+      sol: `V = π∫<sub>0</sub><sup>${a}</sup>(${k === 1 ? '' : k}√x)²dx = π∫<sub>0</sub><sup>${a}</sup>${k * k === 1 ? '' : k * k}x dx = π·${k * k}·${a}²/2 = ${num(k * k * a * a / 2)}π ≈ ${numF(round(V, 1), 1)} dm³.`,
+    };
+  });
+  M('sa', 'GTLN – GTNN', (r) => {
+    const V = r.pick([32, 108, 256, 500, 864]); // bể hộp đáy vuông không nắp, thể tích V, tối thiểu diện tích: x = ∛(2V)
+    const x = Math.round(Math.cbrt(2 * V)), S = x * x + 4 * V / x;
+    return {
+      q: `Người ta cần xây một bể chứa nước dạng hình hộp chữ nhật không nắp, đáy là hình vuông, có thể tích ${V} m³. Để tốn ít vật liệu nhất (tổng diện tích đáy và các mặt bên nhỏ nhất) thì cạnh đáy của bể bằng bao nhiêu mét?`,
+      ans: x, dp: 0,
+      sol: `Gọi cạnh đáy x, chiều cao h ⇒ x²h = ${V} ⇒ h = ${V}/x². Diện tích S(x) = x² + 4xh = x² + ${4 * V}/x (x > 0). S'(x) = 2x − ${4 * V}/x² = 0 ⇔ x³ = ${2 * V} ⇔ x = ${num(x, 2)}. Bảng biến thiên cho S đạt nhỏ nhất tại x = ${num(x, 2)} m (S<sub>min</sub> = ${num(S, 2)} m²).`,
+    };
+  });
+
   /* ============================== VẬT LÍ ============================== */
   const P = cl('physics');
   const TP = { px: 'Phóng xạ', pu: 'Phản ứng hạt nhân', cu: 'Cảm ứng điện từ – Điện xoay chiều' };
-  P('mc', TP.px, (r) => {
+  LT.add('physics', 'mc', TP.px, (r) => {
     const k = r.int(1, 4), useH = r.bool();
     const age = 5730 * k;
     return {
@@ -154,7 +186,7 @@
     const ratio = Math.pow(2, k) - 1;
     return { q: `Hạt nhân X phóng xạ biến thành hạt nhân Y bền, chu kì bán rã ${T1} ngày. Ban đầu mẫu X nguyên chất. Tính tỉ số số hạt nhân Y và số hạt nhân X sau ${num(k * T1)} ngày (làm tròn đến hàng phần trăm).`, ans: round(ratio, 2), dp: 2, sol: `N<sub>Y</sub>/N<sub>X</sub> = 2<sup>t/T</sup> − 1 = 2<sup>${num(k)}</sup> − 1 ≈ ${numF(round(ratio, 2), 2)}.` };
   });
-  P('sa', TP.px, (r) => {
+  LT.add('physics', 'sa', TP.px, (r) => {
     const pct = r.pick([10, 20, 25, 30, 40, 60, 70]);
     const t = (5730 * Math.log(100 / pct)) / Math.log(2);
     return { q: `Đo độ phóng xạ của <sup>14</sup>C trong một mẫu xương cổ thấy chỉ còn bằng ${pct}% so với mẫu xương cùng loại mới. Chu kì bán rã của <sup>14</sup>C là 5730 năm. Tuổi của mẫu xương là bao nhiêu nghìn năm (làm tròn đến hàng phần mười)?`, ans: round(t / 1000, 1), dp: 1, sol: `H/H₀ = 2<sup>−t/T</sup> = ${num(pct / 100)} ⇒ t = T·log₂(1/${num(pct / 100)}) = 5730·${num(Math.log(100 / pct) / Math.log(2), 4)} ≈ ${num(t, 0)} năm ≈ ${numF(round(t / 1000, 1), 1)} nghìn năm.` };

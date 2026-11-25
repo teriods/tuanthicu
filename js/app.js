@@ -149,6 +149,15 @@
         <label class="switch"><input type="checkbox" id="opt-instant" ${set.instant ? 'checked' : ''}><span>Hiện đáp án và lời giải ngay sau mỗi câu</span></label>
         <label class="switch"><input type="checkbox" id="opt-strict" ${set.strict ? 'checked' : ''}><span>Tính giờ như thi thật (không dừng đồng hồ khi rời trang)</span></label>
       </div>
+      <details class="card small" style="margin-top:16px"><summary>Định hướng đề thi 2027 (cập nhật theo đề chính thức 2025–2026)</summary>
+        <ul class="notes" style="margin-top:8px">
+          <li>Đề 2026 giữ nguyên cấu trúc, định dạng năm 2025; đến nay Bộ GD&ĐT chưa công bố thay đổi cho kì thi 2027. Bám sát Chương trình GDPT 2018.</li>
+          <li><b>Toán:</b> trọng tâm lớp 12, có thống kê, xác suất, cấp số… của lớp 10–11. Xác suất – tổ hợp, hình không gian, thể tích tròn xoay và bài toán tối ưu là nhóm câu phân loại.</li>
+          <li><b>Vật lí:</b> tập trung kiến thức lớp 12 (vật lí nhiệt, khí lí tưởng, từ trường, vật lí hạt nhân).</li>
+          <li><b>Hoá học:</b> trải rộng lớp 10–12, nhiều câu gắn thực tiễn và thí nghiệm.</li>
+          <li>Tỉ lệ mức độ định hướng: khoảng 40% nhận biết – 30% thông hiểu – 30% vận dụng.</li>
+        </ul>
+      </details>
       <details class="card small" style="margin-top:16px"><summary>Cấu trúc đề & cách tính điểm</summary>
         <table class="tbl" style="display:table;width:100%;margin-top:10px">
           <tr><th></th><th>Toán (90 phút)</th><th>Vật lí / Hoá học (50 phút)</th></tr>
@@ -156,7 +165,7 @@
           <tr><th>Phần II – đúng/sai</th><td colspan="2">4 câu, mỗi câu 4 ý: đúng 1 ý 0,1 đ · 2 ý 0,25 đ · 3 ý 0,5 đ · 4 ý 1 đ</td></tr>
           <tr><th>Phần III – trả lời ngắn</th><td>6 câu × 0,5 đ</td><td>6 câu × 0,25 đ</td></tr>
         </table>
-        <p class="muted">Mỗi môn ${LT.EXAMS_PER_SUBJECT} đề bám sát các dạng bài trong đề thi 2009–2025 (Chương trình GDPT 2018). Bài làm tự lưu trên máy, mất mạng hay có cuộc gọi vẫn không mất bài.</p>
+        <p class="muted">Mỗi môn ${LT.EXAMS_PER_SUBJECT} đề bám sát các dạng bài trong đề thi 2020–2026 (Chương trình GDPT 2018). Bài làm tự lưu trên máy, mất mạng hay có cuộc gọi vẫn không mất bài.</p>
       </details>
       <footer class="foot">Dữ liệu học tập chỉ lưu trên thiết bị của bạn. Có thể sao lưu ở mục <a href="#/history">Lịch sử</a>.</footer>`;
     bindDiscard();
@@ -312,7 +321,7 @@
     }
     const vt = { ok: 'Đúng', no: 'Sai', part: res && res.detail ? `Đúng ${res.detail.filter(Boolean).length}/4 ý` : '', blank: 'Bỏ trống' };
     const pts = full && res ? ` <span class="small muted">(${fmt(res.pts)}/${fmt(res.max)} đ)</span>` : '';
-    const badge = q.classic ? '<span class="tag classic" title="Dạng bài xuất hiện nhiều lần trong đề thi 2009–2025">Dạng đề các năm</span>' : '';
+    const badge = q.classic ? '<span class="tag classic" title="Dạng bài xuất hiện nhiều lần trong đề thi 2020–2026">Dạng đề các năm</span>' : '';
     const flagBtn = review ? '' : `<button class="flag ${flagged ? 'on' : ''}" data-flag="${i}">${flagged ? '★ Đã đánh dấu' : '☆ Đánh dấu'}</button>`;
     return `<article class="card q ${full && !review ? 'done-' + verdict : ''}" id="q${i}">
       <div class="q-head">${num}<span class="q-topic">${esc(q.topic)}</span>${badge}${full ? `<span class="verdict ${verdict}">${vt[verdict]}</span>${pts}` : ''}${flagBtn}</div>
