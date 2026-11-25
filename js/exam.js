@@ -2,7 +2,7 @@
 (function (G) {
   'use strict';
   const LT = G.LT;
-  const VERSION = 'v2';
+  const VERSION = 'v3';
   const EXAMS_PER_SUBJECT = 120;
 
   /* Cấu trúc đề theo định dạng thi tốt nghiệp THPT từ năm 2025 */
@@ -68,7 +68,7 @@
     const questions = [];
     ['mc', 'tf', 'sa'].forEach((part) => {
       let chosen;
-      /* Khoảng một nửa số câu tính toán lấy từ các dạng kinh điển của đề thi 2009–2025 */
+      /* Khoảng một nửa số câu tính toán lấy từ các dạng kinh điển của đề thi 2020–2026 */
       const SHARE = { mc: 0.5, tf: 0.25, sa: 0.34 };
       const mix = (pool, n) => {
         const cls = pool.filter((g) => g.classic), rest = pool.filter((g) => !g.classic);

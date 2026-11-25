@@ -167,7 +167,7 @@
       if (c.classic) LT.BANK[subj].mc[LT.BANK[subj].mc.length - 1].classic = true;
     });
   };
-  /** Dạng bài kinh điển: xuất hiện lặp lại trong đề thi các năm 2009–2025. */
+  /** Dạng bài kinh điển: xuất hiện lặp lại trong đề thi các năm 2020–2026. */
   LT.addClassic = function (subj, part, topic, gen) {
     LT.add(subj, part, topic, gen);
     LT.BANK[subj][part][LT.BANK[subj][part].length - 1].classic = true;
