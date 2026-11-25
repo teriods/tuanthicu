@@ -215,6 +215,66 @@
 
     return { band, notes, weak, strong, review, topicRows, trend, next };
   }
+
+  /* ===== Năng lực & gợi ý đề phù hợp ===== */
+  function topicAgg(atts) {
+    const agg = {};
+    atts.forEach((a) => a.topics && Object.entries(a.topics).forEach(([t, v]) => { const x = (agg[t] = agg[t] || { got: 0, max: 0, n: 0 }); x.got += v[0]; x.max += v[1]; x.n++; }));
+    return Object.entries(agg).filter(([, v]) => v.max > 0).map(([t, v]) => ({ t, p: v.got / v.max, got: v.got, max: v.max, n: v.n }));
+  }
+  /** Gợi ý đề tiếp theo: chọn mức theo năng lực, ưu tiên đề có nhiều câu thuộc chủ đề yếu. */
+  LT.recommend = function (subj, attempts) {
+    const atts = attempts.filter((a) => a.subj === subj);
+    const recent = atts.slice(-5);
+    const ability = recent.length ? recent.reduce((s, a) => s + a.score, 0) / recent.length : null;
+    const lv = ability == null ? 1 : ability < 5 ? 1 : ability < 7.5 ? 2 : 3;
+    const range = { 1: [1, 40], 2: [41, 80], 3: [81, 120] }[lv];
+    const done = new Set(atts.map((a) => a.no));
+    const weak = topicAgg(atts.slice(-10)).filter((x) => x.p < 0.6).sort((a, b) => a.p - b.p).map((x) => x.t);
+    let cands = [];
+    for (let no = range[0]; no <= range[1]; no++) if (!done.has(no)) cands.push(no);
+    if (!cands.length) {
+      const best = {};
+      atts.forEach((a) => { if (a.no >= range[0] && a.no <= range[1]) best[a.no] = Math.max(best[a.no] || 0, a.score); });
+      cands = Object.keys(best).map(Number).sort((a, b) => best[a] - best[b]);
+    }
+    let pick = cands[0] || range[0], hit = 0;
+    if (weak.length) {
+      cands.slice(0, 15).forEach((no) => {
+        const n = LT.getExam(subj, no).questions.filter((q) => weak.indexOf(q.topic) >= 0).length;
+        if (n > hit) { hit = n; pick = no; }
+      });
+    }
+    const lvName = { 1: 'Cơ bản', 2: 'Trung bình', 3: 'Vận dụng' }[lv];
+    let why = ability == null ? 'Bắt đầu với đề mức Cơ bản để đánh giá năng lực.' : `Điểm trung bình gần đây ${LT.U.num(ability, 2)} → phù hợp mức ${lvName}.`;
+    if (weak.length && hit) why += ` Đề này có ${hit} câu thuộc chủ đề bạn cần cải thiện (${weak.slice(0, 2).join(', ')}).`;
+    return { no: pick, level: lv, levelName: lvName, ability, weak, why };
+  };
+  /** Đánh giá tổng hợp một môn qua tất cả các lần làm. */
+  LT.summary = function (subj, attempts) {
+    const S = LT.SUBJECTS[subj];
+    const atts = attempts.filter((a) => a.subj === subj);
+    if (!atts.length) return null;
+    const recent = atts.slice(-5);
+    const avg = recent.reduce((s, a) => s + a.score, 0) / recent.length;
+    const sd = Math.sqrt(recent.reduce((s, a) => s + (a.score - avg) * (a.score - avg), 0) / recent.length);
+    const maxPart = { mc: S.parts.mc * S.pts.mc, tf: S.parts.tf, sa: S.parts.sa * S.pts.sa };
+    const parts = {};
+    ['mc', 'tf', 'sa'].forEach((k) => { const v = atts.filter((a) => a.parts).map((a) => a.parts[k] / maxPart[k]); parts[k] = v.length ? v.reduce((x, y) => x + y, 0) / v.length : 0; });
+    const topics = topicAgg(atts).sort((a, b) => LT.TOPICS[subj].indexOf(a.t) - LT.TOPICS[subj].indexOf(b.t));
+    const days = new Set(attempts.map((a) => new Date(a.date).toDateString()));
+    let streak = 0; const d = new Date();
+    if (!days.has(d.toDateString())) d.setDate(d.getDate() - 1);
+    while (days.has(d.toDateString())) { streak++; d.setDate(d.getDate() - 1); }
+    const first = atts.slice(0, Math.min(3, atts.length)), last = atts.slice(-Math.min(3, atts.length));
+    const gain = atts.length >= 4 ? last.reduce((s, a) => s + a.score, 0) / last.length - first.reduce((s, a) => s + a.score, 0) / first.length : null;
+    return {
+      n: atts.length, best: Math.max(...atts.map((a) => a.score)), avg, lo: Math.max(0, avg - sd), hi: Math.min(10, avg + sd),
+      trend: atts.slice(-10).map((a) => a.score), parts, topics, streak, gain,
+      minutes: Math.round(atts.reduce((s, a) => s + (a.usedMs || 0), 0) / 60000),
+      mastered: topics.filter((x) => x.p >= 0.8).length, total: LT.TOPICS[subj].length,
+    };
+  };
   function fmt(x) { return LT.U.num(x, 2); }
   LT.feedback = feedback;
 })(typeof window !== 'undefined' ? window : globalThis);
