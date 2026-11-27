@@ -1,4 +1,15 @@
-# Luyện thi THPT 2027 – Khối A (Toán · Vật lí · Hoá học)
+# Luyện thi 2027 – Vào 10 chuyên Nguyễn Huệ & Đại học khối A
+
+Menu trên cùng có 2 nút: **🏫 Thi vào 10** và **🎓 Thi Đại học**.
+
+## Thi vào lớp 10 (Hà Nội – THPT chuyên Nguyễn Huệ, Hà Đông)
+Theo hình thức thi của Sở GD&ĐT Hà Nội: Toán (tự luận 120'), Ngữ văn (tự luận 120'), Tiếng Anh (trắc nghiệm 60'), môn chuyên (150', hệ số 2).
+- **Toán vào 10** – 120 đề: 8 câu trắc nghiệm nhanh + 8 bài “ghi kết quả” tương ứng các bài tự luận (rút gọn căn thức, lập PT/HPT, Viète, parabol, hình trụ – nón – cầu thực tế, tỉ số lượng giác, đường tròn, cực trị).
+- **Tiếng Anh vào 10** – 120 đề × 40 câu từ ngân hàng 100+ câu: ngữ âm, trọng âm, thì, bị động, điều kiện, mệnh đề quan hệ, tường thuật, từ loại, giao tiếp, viết lại câu, tìm lỗi, đọc hiểu.
+- **Toán chuyên** – 120 đề × 8 bài: số học (ước, đồng dư, nghiệm nguyên), biến đổi đại số, phương trình vô tỉ – hệ đối xứng, bất đẳng thức, tổ hợp, hình học phẳng.
+- Ngữ văn thi tự luận nên chưa chấm tự động.
+
+## Thi tốt nghiệp THPT & Đại học khối A
 
 Web luyện đề thi tốt nghiệp THPT theo **cấu trúc đề mới từ năm 2025** (Chương trình GDPT 2018), chạy hoàn toàn trên trình duyệt, không cần máy chủ.
 

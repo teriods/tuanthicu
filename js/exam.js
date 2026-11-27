@@ -7,9 +7,22 @@
 
   /* Cấu trúc đề theo định dạng thi tốt nghiệp THPT từ năm 2025 */
   LT.SUBJECTS = {
-    math: { key: 'math', name: 'Toán', icon: '∑', minutes: 90, parts: { mc: 12, tf: 4, sa: 6 }, pts: { mc: 0.25, sa: 0.5 }, concepts: 1, color: 'blue' },
-    physics: { key: 'physics', name: 'Vật lí', icon: '⚛', minutes: 50, parts: { mc: 18, tf: 4, sa: 6 }, pts: { mc: 0.25, sa: 0.25 }, concepts: 7, color: 'violet' },
-    chemistry: { key: 'chemistry', name: 'Hoá học', icon: '⚗', minutes: 50, parts: { mc: 18, tf: 4, sa: 6 }, pts: { mc: 0.25, sa: 0.25 }, concepts: 7, color: 'green' },
+    math: { track: 'dh', key: 'math', name: 'Toán', icon: '∑', minutes: 90, parts: { mc: 12, tf: 4, sa: 6 }, pts: { mc: 0.25, sa: 0.5 }, concepts: 1, color: 'blue' },
+    physics: { track: 'dh', key: 'physics', name: 'Vật lí', icon: '⚛', minutes: 50, parts: { mc: 18, tf: 4, sa: 6 }, pts: { mc: 0.25, sa: 0.25 }, concepts: 7, color: 'violet' },
+    chemistry: { track: 'dh', key: 'chemistry', name: 'Hoá học', icon: '⚗', minutes: 50, parts: { mc: 18, tf: 4, sa: 6 }, pts: { mc: 0.25, sa: 0.25 }, concepts: 7, color: 'green' },
+  };
+  /* Thi vào lớp 10 – Hà Nội / THPT chuyên Nguyễn Huệ */
+  Object.assign(LT.SUBJECTS, {
+    toan10: { track: 'v10', key: 'toan10', name: 'Toán vào 10', icon: '√', minutes: 120, parts: { mc: 8, tf: 0, sa: 8 }, pts: { mc: 0.25, sa: 1 }, concepts: 0, color: 'orange',
+      partNames: { mc: 'PHẦN I. Trắc nghiệm nhanh', sa: 'PHẦN II. Bài toán tự luận (ghi kết quả)' }, note: 'Đề thật là tự luận 120 phút (5 bài). Ở đây mỗi bài được chuyển thành câu ghi kết quả để chấm tự động – khi luyện nên trình bày lời giải ra giấy.' },
+    anh10: { track: 'v10', key: 'anh10', name: 'Tiếng Anh vào 10', icon: 'Aa', minutes: 60, parts: { mc: 40, tf: 0, sa: 0 }, pts: { mc: 0.25, sa: 0 }, concepts: 40, color: 'teal',
+      partNames: { mc: 'Trắc nghiệm 40 câu' }, note: 'Đề Hà Nội: 40 câu trắc nghiệm, 60 phút, chủ yếu kiến thức lớp 9.' },
+    toanchuyen: { track: 'v10', key: 'toanchuyen', name: 'Toán chuyên', icon: '∞', minutes: 150, parts: { mc: 0, tf: 0, sa: 8 }, pts: { mc: 0, sa: 1.25 }, concepts: 0, color: 'pink',
+      partNames: { sa: 'Bài toán chuyên (ghi kết quả)' }, note: 'Môn chuyên Toán thi tự luận 150 phút, hệ số 2. Bài ở đây yêu cầu ghi kết quả cuối cùng.' },
+  });
+  LT.TRACKS = {
+    v10: { key: 'v10', name: 'Thi vào lớp 10', short: 'Thi vào 10', icon: '🏫', title: 'Luyện thi vào lớp 10 – THPT chuyên Nguyễn Huệ (Hà Đông)', desc: 'Theo hình thức thi của Sở GD&ĐT Hà Nội: Toán (tự luận 120 phút), Ngữ văn (tự luận 120 phút), Tiếng Anh (trắc nghiệm 60 phút) và môn chuyên (150 phút, hệ số 2).' },
+    dh: { key: 'dh', name: 'Thi tốt nghiệp THPT & Đại học', short: 'Thi Đại học', icon: '🎓', title: 'Luyện thi tốt nghiệp THPT 2027 – Khối A', desc: 'Toán, Vật lí, Hoá học theo cấu trúc đề thi tốt nghiệp THPT mới (Chương trình GDPT 2018), bám sát các dạng đề 2020–2026.' },
   };
   LT.EXAMS_PER_SUBJECT = EXAMS_PER_SUBJECT;
   LT.PART_NAMES = { mc: 'PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn', tf: 'PHẦN II. Câu trắc nghiệm đúng sai', sa: 'PHẦN III. Câu trắc nghiệm trả lời ngắn' };
@@ -178,12 +191,12 @@
     const notes = [];
     const P = res.parts;
     const pct = (p) => (p.max ? p.got / p.max : 0);
-    const partName = { mc: 'Phần I (nhiều lựa chọn)', tf: 'Phần II (Đúng/Sai)', sa: 'Phần III (trả lời ngắn)' };
-    const partsSorted = Object.keys(P).sort((a, b) => pct(P[a]) - pct(P[b]));
-    const weakest = partsSorted[0], strongest = partsSorted[2];
-    notes.push(`${partName[strongest]} là phần bạn làm tốt nhất (${fmt(P[strongest].got)}/${fmt(P[strongest].max)} điểm); ${partName[weakest]} đạt thấp nhất (${fmt(P[weakest].got)}/${fmt(P[weakest].max)} điểm).`);
-    if (pct(P.tf) < 0.6) notes.push('Phần Đúng/Sai: điểm chỉ thật sự cao khi đúng cả 4 ý (1 điểm), đúng 3 ý chỉ được 0,5. Hãy kiểm tra từng ý một cách độc lập, nhất là các ý có tính toán.');
-    if (pct(P.sa) < 0.5) notes.push('Phần Trả lời ngắn: chú ý đơn vị và yêu cầu làm tròn của đề; tính toán cẩn thận vì không có phương án để đối chiếu.');
+    const partName = Object.assign({ mc: 'Phần I (nhiều lựa chọn)', tf: 'Phần II (Đúng/Sai)', sa: 'Phần III (trả lời ngắn)' }, S.partNames || {});
+    const partsSorted = Object.keys(P).filter((k) => P[k].max > 0).sort((a, b) => pct(P[a]) - pct(P[b]));
+    const weakest = partsSorted[0], strongest = partsSorted[partsSorted.length - 1];
+    if (partsSorted.length > 1) notes.push(`${partName[strongest]} là phần bạn làm tốt nhất (${fmt(P[strongest].got)}/${fmt(P[strongest].max)} điểm); ${partName[weakest]} đạt thấp nhất (${fmt(P[weakest].got)}/${fmt(P[weakest].max)} điểm).`);
+    if (P.tf.max && pct(P.tf) < 0.6) notes.push('Phần Đúng/Sai: điểm chỉ thật sự cao khi đúng cả 4 ý (1 điểm), đúng 3 ý chỉ được 0,5. Hãy kiểm tra từng ý một cách độc lập, nhất là các ý có tính toán.');
+    if (P.sa.max && pct(P.sa) < 0.5) notes.push('Phần Trả lời ngắn: chú ý đơn vị và yêu cầu làm tròn của đề; tính toán cẩn thận vì không có phương án để đối chiếu.');
     if (res.blank > 0) notes.push(`Bạn bỏ trống ${res.blank} câu. Với phần I, nên luôn chọn một phương án (không bị trừ điểm khi sai).`);
     if (ctx && ctx.usedMs != null) {
       const used = ctx.usedMs / 60000, lim = S.minutes;
@@ -260,7 +273,7 @@
     const sd = Math.sqrt(recent.reduce((s, a) => s + (a.score - avg) * (a.score - avg), 0) / recent.length);
     const maxPart = { mc: S.parts.mc * S.pts.mc, tf: S.parts.tf, sa: S.parts.sa * S.pts.sa };
     const parts = {};
-    ['mc', 'tf', 'sa'].forEach((k) => { const v = atts.filter((a) => a.parts).map((a) => a.parts[k] / maxPart[k]); parts[k] = v.length ? v.reduce((x, y) => x + y, 0) / v.length : 0; });
+    ['mc', 'tf', 'sa'].filter((k) => maxPart[k] > 0).forEach((k) => { const v = atts.filter((a) => a.parts).map((a) => a.parts[k] / maxPart[k]); parts[k] = v.length ? v.reduce((x, y) => x + y, 0) / v.length : 0; });
     const topics = topicAgg(atts).sort((a, b) => LT.TOPICS[subj].indexOf(a.t) - LT.TOPICS[subj].indexOf(b.t));
     const days = new Set(attempts.map((a) => new Date(a.date).toDateString()));
     let streak = 0; const d = new Date();
