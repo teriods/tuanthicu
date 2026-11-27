@@ -81,21 +81,24 @@
     if (cleanup) { try { cleanup(); } catch (e) { /* */ } cleanup = null; }
     document.body.classList.remove('in-exam');
     const h = location.hash.replace(/^#\/?/, '').split('/');
-    document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === (h[0] || 'home')));
+    const subjOf = ['s', 'exam', 'hoc'].indexOf(h[0]) >= 0 ? h[1] : h[0] === 'result' ? (Store.attempt(h[1]) || {}).subj : null;
+    const navKey = LT.TRACKS[h[0]] ? h[0] : subjOf && LT.SUBJECTS[subjOf] ? LT.SUBJECTS[subjOf].track : h[0] || 'home';
+    document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === navKey));
     window.scrollTo(0, 0);
     if (h[0] === 's' && LT.SUBJECTS[h[1]]) return viewSubject(h[1]);
     if (h[0] === 'exam' && LT.SUBJECTS[h[1]]) return viewExam(h[1], clampNo(h[2]));
     if (h[0] === 'result') return viewResult(h[1]);
     if (h[0] === 'history') return viewHistory();
+    if (LT.TRACKS[h[0]]) return viewHome(h[0]);
     if (h[0] === 'hoc' && LT.SUBJECTS[h[1]]) return viewHandbook(h[1], h[2] ? decodeURIComponent(h[2]) : null);
-    return viewHome();
+    return viewLanding();
   }
   const clampNo = (n) => Math.min(LT.EXAMS_PER_SUBJECT, Math.max(1, parseInt(n, 10) || 1));
   const go = (h) => { if (location.hash === h) route(); else location.hash = h; };
 
   /* ---------------- Trang chủ ---------------- */
-  function resumeCard() {
-    const list = Store.listActive().filter((a) => LT.SUBJECTS[a.subj]);
+  function resumeCard(track) {
+    const list = Store.listActive().filter((a) => LT.SUBJECTS[a.subj] && (!track || LT.SUBJECTS[a.subj].track === track));
     if (!list.length) return '';
     return list.map((a) => {
       const S = LT.SUBJECTS[a.subj];
@@ -118,9 +121,11 @@
     while (days.has(d.toDateString())) { n++; d.setDate(d.getDate() - 1); }
     return n;
   }
-  function viewHome() {
+  function viewHome(track) {
+    track = LT.TRACKS[track] ? track : 'dh';
+    const TR = LT.TRACKS[track];
     const atts = Store.attempts();
-    const cards = Object.values(LT.SUBJECTS).map((S) => {
+    const cards = Object.values(LT.SUBJECTS).filter((S) => S.track === track).map((S) => {
       const st = subjStats(S.key);
       const act = Store.getActive(S.key);
       const rec = LT.recommend(S.key, atts);
@@ -138,18 +143,26 @@
     const cheer = LT.pickCheer(LT.CHEER.daily, Math.floor(Date.now() / 86400000));
     app.innerHTML = `
       <section class="hero">
-        <h1>Luyện đề thi tốt nghiệp THPT 2027 – Khối A</h1>
+        <h1>${TR.icon} ${TR.title}</h1>
+        <p class="muted" style="margin:6px 0 0">${TR.desc}</p>
         <p class="cheer">💬 ${cheer}</p>
         ${streak ? `<p class="small" style="margin-top:6px">🔥 Bạn đã luyện <b>${streak} ngày liên tiếp</b>. Đừng để chuỗi bị đứt nhé!</p>` : ''}
       </section>
-      ${resumeCard()}
+      ${resumeCard(track)}
       <h2>Chọn môn và vào thi</h2>
       <div class="grid c3">${cards}</div>
+      ${track === 'v10' ? `<div class="card small" style="margin-top:16px"><b>📝 Lưu ý về các môn thi vào 10 Hà Nội</b>
+        <ul class="notes" style="margin-top:6px">
+          <li><b>Toán</b> thi tự luận 120 phút (5 bài: rút gọn biểu thức, giải toán bằng cách lập phương trình, hình không gian thực tế, phương trình – hệ phương trình – parabol, hình học đường tròn, bài cực trị). Ở đây mỗi bài được chuyển thành câu ghi kết quả để chấm tự động – hãy trình bày lời giải ra giấy khi luyện.</li>
+          <li><b>Tiếng Anh</b> thi trắc nghiệm 40 câu trong 60 phút.</li>
+          <li><b>Ngữ văn</b> thi tự luận (đọc hiểu + viết) nên chưa chấm tự động được trong ứng dụng.</li>
+          <li><b>Môn chuyên</b> (150 phút, hệ số 2): hiện có Toán chuyên. Lưu ý Bộ GD&ĐT đang lấy ý kiến dự thảo thay đổi cách tuyển sinh lớp 10 chuyên từ năm 2027 – theo dõi thông báo chính thức của Sở GD&ĐT Hà Nội và trường.</li>
+        </ul></div>` : ''}
       <div class="card small" style="margin-top:16px">
         <label class="switch"><input type="checkbox" id="opt-instant" ${set.instant ? 'checked' : ''}><span>Hiện đáp án và lời giải ngay sau mỗi câu</span></label>
         <label class="switch"><input type="checkbox" id="opt-strict" ${set.strict ? 'checked' : ''}><span>Tính giờ như thi thật (không dừng đồng hồ khi rời trang)</span></label>
       </div>
-      <details class="card small" style="margin-top:16px"><summary>Định hướng đề thi 2027 (cập nhật theo đề chính thức 2025–2026)</summary>
+      ${track === 'dh' ? `<details class="card small" style="margin-top:16px"><summary>Định hướng đề thi 2027 (cập nhật theo đề chính thức 2025–2026)</summary>
         <ul class="notes" style="margin-top:8px">
           <li>Đề 2026 giữ nguyên cấu trúc, định dạng năm 2025; đến nay Bộ GD&ĐT chưa công bố thay đổi cho kì thi 2027. Bám sát Chương trình GDPT 2018.</li>
           <li><b>Toán:</b> trọng tâm lớp 12, có thống kê, xác suất, cấp số… của lớp 10–11. Xác suất – tổ hợp, hình không gian, thể tích tròn xoay và bài toán tối ưu là nhóm câu phân loại.</li>
@@ -167,12 +180,29 @@
         </table>
         <p class="muted">Mỗi môn ${LT.EXAMS_PER_SUBJECT} đề bám sát các dạng bài trong đề thi 2020–2026 (Chương trình GDPT 2018). Bài làm tự lưu trên máy, mất mạng hay có cuộc gọi vẫn không mất bài.</p>
       </details>
+      ` : ''}
       <footer class="foot">Dữ liệu học tập chỉ lưu trên thiết bị của bạn. Có thể sao lưu ở mục <a href="#/history">Lịch sử</a>.</footer>`;
     bindDiscard();
     app.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => quickStart(b.dataset.go)));
     const saveOpt = () => { Store.saveSettings(Object.assign(Store.settings(), { instant: document.getElementById('opt-instant').checked, strict: document.getElementById('opt-strict').checked })); toast('Đã lưu cài đặt – áp dụng cho bài thi mới.'); };
     document.getElementById('opt-instant').onchange = saveOpt;
     document.getElementById('opt-strict').onchange = saveOpt;
+  }
+  function viewLanding() {
+    const cheer = LT.pickCheer(LT.CHEER.daily, Math.floor(Date.now() / 86400000));
+    const streak = learnStreak();
+    const big = (k) => {
+      const T = LT.TRACKS[k];
+      const subs = Object.values(LT.SUBJECTS).filter((S) => S.track === k);
+      const n = Store.attempts().filter((a) => LT.SUBJECTS[a.subj] && LT.SUBJECTS[a.subj].track === k).length;
+      return `<a class="track-card ${k}" href="#/${k}"><span class="ti">${T.icon}</span><b>${T.name}</b><span>${k === 'v10' ? 'Vào 10 chuyên Nguyễn Huệ (Hà Đông) – Hà Nội' : 'Tốt nghiệp THPT 2027 – Khối A'}</span><span class="small">${subs.map((S) => S.name).join(' · ')}</span><span class="small">${n ? 'Đã làm ' + n + ' đề' : 'Bắt đầu ngay →'}</span></a>`;
+    };
+    app.innerHTML = `
+      <section class="hero"><h1>Luyện thi 2027</h1><p class="muted" style="margin:6px 0 0">Chọn kì thi bạn đang chuẩn bị. Bài làm tự lưu trên máy, chấm điểm và giải thích chi tiết từng câu.</p><p class="cheer">💬 ${cheer}</p>${streak ? `<p class="small" style="margin-top:6px">🔥 Bạn đã luyện <b>${streak} ngày liên tiếp</b>.</p>` : ''}</section>
+      <div class="tracks">${big('v10')}${big('dh')}</div>
+      ${resumeCard()}
+      <footer class="foot">Dữ liệu học tập chỉ lưu trên thiết bị của bạn. Có thể sao lưu ở mục <a href="#/history">Lịch sử</a>.</footer>`;
+    bindDiscard();
   }
   function confirmDiscard(subj, after) {
     modal({
@@ -211,8 +241,9 @@
     });
     const weak = Object.entries(agg).filter(([, v]) => v.max > 0).map(([t, v]) => ({ t, p: v.got / v.max })).sort((a, b) => a.p - b.p).slice(0, 3);
     app.innerHTML = `
-      <p class="small"><a href="#/">← Trang chủ</a></p>
+      <p class="small"><a href="#/${S.track}">← ${LT.TRACKS[S.track].short}</a></p>
       <h1>${S.icon} ${S.name} – ${LT.EXAMS_PER_SUBJECT} đề luyện tập</h1>
+      ${S.note ? `<p class="small muted">${S.note}</p>` : ''}
       <div class="stats" style="margin-bottom:8px"><span>Thời gian <b>${S.minutes} phút</b></span><span>${S.parts.mc} câu nhiều lựa chọn · ${S.parts.tf} câu đúng/sai · ${S.parts.sa} câu trả lời ngắn</span></div>
       <div class="stats"><span>Đã làm <b>${st.done}</b>/${LT.EXAMS_PER_SUBJECT} đề</span><span>Số lượt <b>${st.n}</b></span><span>Điểm TB <b>${st.avg == null ? '–' : fmt(st.avg)}</b></span></div>
       <div class="card rec" style="margin-top:12px"><div class="row"><div style="flex:1;min-width:200px"><b>🎯 Đề gợi ý cho bạn: Đề số ${rec.no}</b> <span class="tag l${rec.level}">${rec.levelName}</span><br><span class="small muted">${rec.why}</span></div><button class="btn primary" data-rec="${rec.no}">${active ? 'Làm tiếp Đề ' + active.no : 'Vào thi'}</button></div></div>
@@ -371,7 +402,9 @@
       tf: 'Mỗi ý a), b), c), d) chọn Đúng hoặc Sai. Đúng 1 ý: 0,1 đ; 2 ý: 0,25 đ; 3 ý: 0,5 đ; 4 ý: 1 đ.',
       sa: `Ghi đáp số vào ô trả lời. Mỗi câu đúng ${fmt(S.pts.sa)} điểm.`,
     }[part];
-    return `<div class="part-title">${LT.PART_NAMES[part]}<small>${desc}</small></div>`;
+    const present = ['mc', 'tf', 'sa'].filter((k) => S.parts[k] > 0);
+    const title = (S.partNames && S.partNames[part]) || LT.PART_NAMES[part].replace(/^PHẦN [IV]+\. /, 'PHẦN ' + ['I', 'II', 'III'][present.indexOf(part)] + '. ');
+    return `<div class="part-title">${title}<small>${desc}</small></div>`;
   }
 
   /* ---------------- Làm bài ---------------- */
@@ -719,9 +752,9 @@
         </div>
         <h3 style="margin-top:14px">Điểm các lần gần nhất</h3>${trendSvg}
         <h3 style="margin-top:14px">Tỉ lệ điểm theo phần (trung bình)</h3>
-        <div class="topic-row"><span>Phần I – nhiều lựa chọn</span><div class="bar"><i class="${sum.parts.mc < 0.5 ? 'lo' : sum.parts.mc < 0.8 ? 'mid' : 'hi'}" style="width:${pct(sum.parts.mc)}%"></i></div><span class="muted">${pct(sum.parts.mc)}%</span></div>
-        <div class="topic-row"><span>Phần II – đúng/sai</span><div class="bar"><i class="${sum.parts.tf < 0.5 ? 'lo' : sum.parts.tf < 0.8 ? 'mid' : 'hi'}" style="width:${pct(sum.parts.tf)}%"></i></div><span class="muted">${pct(sum.parts.tf)}%</span></div>
-        <div class="topic-row"><span>Phần III – trả lời ngắn</span><div class="bar"><i class="${sum.parts.sa < 0.5 ? 'lo' : sum.parts.sa < 0.8 ? 'mid' : 'hi'}" style="width:${pct(sum.parts.sa)}%"></i></div><span class="muted">${pct(sum.parts.sa)}%</span></div>
+        ${sum.parts.mc != null ? `<div class="topic-row"><span>Phần I – nhiều lựa chọn</span><div class="bar"><i class="${sum.parts.mc < 0.5 ? 'lo' : sum.parts.mc < 0.8 ? 'mid' : 'hi'}" style="width:${pct(sum.parts.mc)}%"></i></div><span class="muted">${pct(sum.parts.mc)}%</span></div>` : ''}
+        ${sum.parts.tf != null ? `<div class="topic-row"><span>Phần II – đúng/sai</span><div class="bar"><i class="${sum.parts.tf < 0.5 ? 'lo' : sum.parts.tf < 0.8 ? 'mid' : 'hi'}" style="width:${pct(sum.parts.tf)}%"></i></div><span class="muted">${pct(sum.parts.tf)}%</span></div>` : ''}
+        ${sum.parts.sa != null ? `<div class="topic-row"><span>Phần III – trả lời ngắn</span><div class="bar"><i class="${sum.parts.sa < 0.5 ? 'lo' : sum.parts.sa < 0.8 ? 'mid' : 'hi'}" style="width:${pct(sum.parts.sa)}%"></i></div><span class="muted">${pct(sum.parts.sa)}%</span></div>` : ''}
         <h3 style="margin-top:14px">Mức độ nắm vững từng chủ đề (tích luỹ)</h3>${mastery}
       </div>
       <div class="card rec" style="margin-top:12px"><div class="row"><div style="flex:1;min-width:200px"><b>🎯 Đề gợi ý tiếp theo: Đề số ${rec.no}</b> <span class="tag l${rec.level}">${rec.levelName}</span><br><span class="small muted">${rec.why}</span></div><button class="btn primary" data-act="next">Vào thi Đề ${rec.no}</button></div></div>`;
@@ -741,9 +774,9 @@
       </div>
       <h2>Điểm từng phần</h2>
       <div class="parts3">
-        <div>Phần I – nhiều lựa chọn<br><b>${fmt(P.mc.got)}</b>/${fmt(P.mc.max)} · đúng ${P.mc.right}/${P.mc.n} câu<div class="bar" style="margin-top:6px"><i style="width:${pc(P.mc)}%"></i></div></div>
-        <div>Phần II – đúng/sai<br><b>${fmt(P.tf.got)}</b>/${fmt(P.tf.max)} · đúng trọn ${P.tf.right}/${P.tf.n} câu<div class="bar" style="margin-top:6px"><i style="width:${pc(P.tf)}%"></i></div></div>
-        <div>Phần III – trả lời ngắn<br><b>${fmt(P.sa.got)}</b>/${fmt(P.sa.max)} · đúng ${P.sa.right}/${P.sa.n} câu<div class="bar" style="margin-top:6px"><i style="width:${pc(P.sa)}%"></i></div></div>
+        ${P.mc.n ? `<div>Phần I – nhiều lựa chọn<br><b>${fmt(P.mc.got)}</b>/${fmt(P.mc.max)} · đúng ${P.mc.right}/${P.mc.n} câu<div class="bar" style="margin-top:6px"><i style="width:${pc(P.mc)}%"></i></div></div>` : ''}
+        ${P.tf.n ? `<div>Phần II – đúng/sai<br><b>${fmt(P.tf.got)}</b>/${fmt(P.tf.max)} · đúng trọn ${P.tf.right}/${P.tf.n} câu<div class="bar" style="margin-top:6px"><i style="width:${pc(P.tf)}%"></i></div></div>` : ''}
+        ${P.sa.n ? `<div>Phần III – trả lời ngắn<br><b>${fmt(P.sa.got)}</b>/${fmt(P.sa.max)} · đúng ${P.sa.right}/${P.sa.n} câu<div class="bar" style="margin-top:6px"><i style="width:${pc(P.sa)}%"></i></div></div>` : ''}
       </div>
       <h2>Nhận xét chung</h2>
       <div class="card">
@@ -828,7 +861,7 @@
           <div class="ex-sec links"><h4>🔗 Học thêm trên Internet</h4>${LT.learnLinks(subj, t).map((l) => `<a href="${l.u}" target="_blank" rel="noopener">${l.t}</a>`).join('')}</div>
         </div></details>`;
     }).join('');
-    app.innerHTML = `<p class="small"><a href="#/">← Trang chủ</a></p>
+    app.innerHTML = `<p class="small"><a href="#/${S.track}">← ${LT.TRACKS[S.track].short}</a></p>
       <h1>📚 Sổ tay kiến thức ${S.name}</h1>
       <p class="muted">Tóm tắt kiến thức, cách giải và lỗi hay gặp của ${LT.TOPICS[subj].length} chủ đề. Con số % là mức nắm vững của bạn qua các lần làm bài.</p>
       <div class="grid" style="gap:10px">${items}</div>
